@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SealDossiersOnly",
+      "Effect": "Allow",
+      "Action": "kms:Sign",
+      "Resource": "arn:aws:kms:af-south-1:<ACCOUNT_ID>:key/<KEY_ID>",
+      "Condition": {
+        "StringEquals": {
+          "kms:SigningAlgorithm": "ECDSA_SHA_256",
+          "kms:MessageType": "DIGEST"
+        }
+      }
+    },
+    {
+      "Sid": "PublishPublicKey",
+      "Effect": "Allow",
+      "Action": ["kms:GetPublicKey", "kms:DescribeKey"],
+      "Resource": "arn:aws:kms:af-south-1:<ACCOUNT_ID>:key/<KEY_ID>"
+    }
+  ]
+}
