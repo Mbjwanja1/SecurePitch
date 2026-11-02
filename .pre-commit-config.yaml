@@ -1,0 +1,48 @@
+# Runs on every `git commit`. Install once per clone with:
+#   pre-commit install
+# Run against the whole repo with:
+#   pre-commit run --all-files
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # Work happens on feature branches; main changes only through pull requests.
+      - id: no-commit-to-branch
+        args: [--branch, main]
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: detect-private-key
+
+  # Secrets and Kenyan phone numbers in staged changes (rules in .gitleaks.toml).
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.2
+    hooks:
+      - id: gitleaks
+
+  # Python lint and format for services/engine and tools/.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.8
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: block-real-financial-files
+        name: block statements and spreadsheets outside fixtures/synthetic
+        language: fail
+        entry: >-
+          Statements and rosters must not be committed. Real files belong in
+          fixtures/private/ (git-ignored); synthetic test files go in fixtures/synthetic/.
+        files: \.(pdf|csv|xlsx|xls)$
+        exclude: ^fixtures/synthetic/

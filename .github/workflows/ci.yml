@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hygiene:
+    name: Hygiene and secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so gitleaks can scan every commit
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run pre-commit hooks on all files
+        uses: pre-commit/action@v3.0.1
+        env:
+          # no-commit-to-branch would fail on pushes to main; the history scan below replaces gitleaks here.
+          SKIP: no-commit-to-branch,gitleaks
+      - name: Scan full git history for secrets and phone numbers
+        run: >-
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.24.2
+          git /repo --config /repo/.gitleaks.toml --redact --verbose
+
+  # The engine and web jobs switch themselves on once their projects exist.
+  engine:
+    name: Engine (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/engine
+    steps:
+      - uses: actions/checkout@v4
+      - id: present
+        working-directory: .
+        run: |
+          if [ -f services/engine/pyproject.toml ]; then echo "yes=true" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.present.outputs.yes == 'true'
+        uses: astral-sh/setup-uv@v6
+      - if: steps.present.outputs.yes == 'true'
+        run: uv sync --locked
+      - if: steps.present.outputs.yes == 'true'
+        run: uv run ruff check .
+      - if: steps.present.outputs.yes == 'true'
+        run: uv run ruff format --check .
+      - if: steps.present.outputs.yes == 'true'
+        run: uv run pytest -q
+      - if: steps.present.outputs.yes == 'true'
+        name: Build the Docker image
+        run: docker build -t securepitch-engine:ci .
+
+  web:
+    name: Web (Next.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - id: present
+        working-directory: .
+        run: |
+          if [ -f apps/web/package.json ]; then echo "yes=true" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.present.outputs.yes == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: apps/web/package.json
+      - if: steps.present.outputs.yes == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - if: steps.present.outputs.yes == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.present.outputs.yes == 'true'
+        run: pnpm lint
+      - if: steps.present.outputs.yes == 'true'
+        run: pnpm exec tsc --noEmit
+      - if: steps.present.outputs.yes == 'true'
+        run: pnpm test --if-present

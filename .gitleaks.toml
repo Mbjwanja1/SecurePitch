@@ -1,0 +1,25 @@
+# Gitleaks configuration for SecurePitch.
+# Runs in the pre-commit hook (staged changes) and in CI (full history).
+
+title = "SecurePitch"
+
+# Keep all of gitleaks' built-in rules (AWS keys, Supabase/JWT tokens, private keys, ...).
+[extend]
+useDefault = true
+
+# Real player and coach numbers must never be committed. The roster is stored
+# only as HMAC keys in the database, so a phone number in git is always a leak.
+# Matches 07XXXXXXXX, 01XXXXXXXX, 2547XXXXXXXX and +2547XXXXXXXX.
+[[rules]]
+id = "kenyan-mobile-number"
+description = "Kenyan mobile number (possible personal data)"
+regex = '''(?:^|[^0-9A-Za-z])((?:\+?254|0)[17][0-9]{8})(?:$|[^0-9A-Za-z])'''
+secretGroup = 1
+keywords = ["07", "01", "254"]
+
+# Synthetic test data is allowed to contain made-up numbers.
+[allowlist]
+description = "Synthetic fixtures"
+paths = [
+  '''^fixtures/synthetic/''',
+]
