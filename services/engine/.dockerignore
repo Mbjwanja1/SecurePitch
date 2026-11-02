@@ -1,0 +1,9 @@
+# Keep secrets, local environments and tests out of the image.
+.env
+.env.*
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+tests/
