@@ -7,14 +7,17 @@ doing anything (rule 5), because its secret key bypasses row-level security.
 
 from __future__ import annotations
 
+import base64
 import re
 from datetime import date, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
+from app.config import MAX_STATEMENT_BYTES
+from app.dossiers import Tag, TagError, build_items
 from app.ingest.parse import StatementError, parse_statement
 from app.roster.keys import (
     InvalidPhone,
@@ -28,7 +31,7 @@ from app.roster.keys import (
 from app.roster.match import Player, find_batches, match_rows
 from app.routers.statements import _ERROR_STATUS, _statement_json
 from app.security import require_internal_key
-from app.supabase import Supabase
+from app.supabase import Supabase, SupabaseError
 
 router = APIRouter(prefix="/v1/clubs/{club_id}", dependencies=[Depends(require_internal_key)])
 
@@ -143,25 +146,11 @@ async def parse_for_club(
     if not body:
         raise HTTPException(400, "The request body is empty")
     try:
-        parsed = await run_in_threadpool(parse_statement, body, x_statement_password)
-    except StatementError as exc:
-        raise HTTPException(
-            _ERROR_STATUS.get(exc.code, 422), {"code": exc.code, "message": exc.message}
-        ) from None
+        parsed, players, fixtures, matches, batches = await _parse_and_match(
+            db, pepper, club_id, body, x_statement_password
+        )
     finally:
         del body
-
-    players = [
-        Player(r["player_code"], r["full_name"], r.get("mask_key"))
-        for r in await run_in_threadpool(db.roster, club_id)
-        if r.get("active", True)
-    ]
-    fixtures: dict[date, str] = {
-        date.fromisoformat(f["match_date"]): f["fixture_code"]
-        for f in await run_in_threadpool(db.fixtures, club_id)
-    }
-    matches = match_rows(parsed.rows, players, club_key(pepper, club_id))
-    batches = find_batches(parsed.rows, matches, fixtures)
 
     result = _statement_json(parsed)
     for t in result["transactions"]:
@@ -180,3 +169,121 @@ async def parse_for_club(
         for b in batches
     ]
     return result
+
+
+async def _parse_and_match(db: Supabase, pepper: bytes, club_id: str, pdf: bytes, password: str):
+    """Parse the statement, load the club's roster and fixtures, match and find batches."""
+    try:
+        parsed = await run_in_threadpool(parse_statement, pdf, password)
+    except StatementError as exc:
+        raise HTTPException(
+            _ERROR_STATUS.get(exc.code, 422), {"code": exc.code, "message": exc.message}
+        ) from None
+    players = [
+        Player(r["player_code"], r["full_name"], r.get("mask_key"))
+        for r in await run_in_threadpool(db.roster, club_id)
+        if r.get("active", True)
+    ]
+    fixtures: dict[date, str] = {
+        date.fromisoformat(f["match_date"]): f["fixture_code"]
+        for f in await run_in_threadpool(db.fixtures, club_id)
+    }
+    matches = match_rows(parsed.rows, players, club_key(pepper, club_id))
+    return parsed, players, fixtures, matches, find_batches(parsed.rows, matches, fixtures)
+
+
+class TagIn(BaseModel):
+    # Only the choice of rows and categories comes from the browser; extra fields such as an
+    # amount are refused rather than silently ignored.
+    model_config = ConfigDict(extra="forbid")
+
+    tx: str = Field(pattern=r"^[A-Z0-9]{10}$")
+    category: str
+    fixture_code: str | None = Field(default=None, max_length=40)
+
+
+class DraftIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    statement_pdf: str = Field(description="the statement PDF, base64-encoded")
+    tags: list[TagIn] = Field(min_length=1, max_length=2000)
+
+
+_DB_ERROR_STATUS = {"42501": 403, "23505": 409, "23514": 422, "P0001": 422}
+
+
+@router.post("/dossiers")
+async def create_draft(
+    club_id: str,
+    body: DraftIn,
+    request: Request,
+    x_actor_id: str = Header(default=""),
+    x_statement_password: str = Header(default=""),
+) -> dict[str, Any]:
+    """Create (or replace) the draft dossier for a statement from the coach's tags.
+
+    The PDF is sent again and re-parsed, so every stored amount and date comes from the
+    statement, not from the browser (ADR 0002). Untagged rows are personal and never stored.
+    """
+    db, pepper = _deps(request)
+    await _require_role(db, club_id, x_actor_id, {"manager"})
+    try:
+        pdf = base64.b64decode(body.statement_pdf, validate=True)
+    except ValueError:
+        raise HTTPException(
+            400, {"code": "bad_pdf", "message": "statement_pdf isn't base64"}
+        ) from None
+    if len(pdf) > MAX_STATEMENT_BYTES:
+        raise HTTPException(413, {"code": "too_large", "message": "Statements are limited to 5 MB"})
+
+    try:
+        parsed, _, fixtures, matches, batches = await _parse_and_match(
+            db, pepper, club_id, pdf, x_statement_password
+        )
+    finally:
+        del pdf
+    try:
+        items = build_items(
+            parsed.rows,
+            [Tag(t.tx, t.category, t.fixture_code) for t in body.tags],
+            matches,
+            batches,
+            set(fixtures.values()),
+            club_key(pepper, club_id),
+        )
+    except TagError as exc:
+        raise HTTPException(422, {"code": "bad_tags", "problems": exc.problems}) from None
+
+    integrity = {
+        "score_bp": parsed.integrity.score_bp,
+        "checks": {
+            name: {"passed": c.passed, "weight_bp": c.weight_bp, "detail": c.detail}
+            for name, c in parsed.integrity.checks.items()
+        },
+    }
+    params = {
+        "p_club": club_id,
+        "p_actor": x_actor_id,
+        "p_period_from": parsed.period_from.isoformat() if parsed.period_from else None,
+        "p_period_to": parsed.period_to.isoformat() if parsed.period_to else None,
+        "p_source_sha256": parsed.source_sha256,
+        "p_rows_total": len(parsed.rows),
+        "p_integrity": integrity,
+        "p_items": items,
+    }
+    if params["p_period_from"] is None or params["p_period_to"] is None:
+        raise HTTPException(
+            422, {"code": "no_period", "message": "The statement period wasn't found"}
+        )
+    try:
+        created = await run_in_threadpool(db.create_draft_dossier, params)
+    except SupabaseError as exc:
+        status = _DB_ERROR_STATUS.get(exc.code or "", 502)
+        raise HTTPException(status, {"code": "database", "message": str(exc)}) from None
+    return {
+        **created,
+        "items": len(items),
+        "income_cents": sum(i["amt_cents"] for i in items if i["dir"] == "in"),
+        "spent_cents": sum(i["amt_cents"] + i["fee_cents"] for i in items if i["dir"] == "out"),
+        "integrity_score_bp": parsed.integrity.score_bp,
+    }

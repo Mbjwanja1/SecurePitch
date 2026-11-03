@@ -9,6 +9,7 @@ Owner: **Chris**. Migrations live in `migrations/` and run in filename order.
 | `…090200_rls.sql` | Row-level security for every table; no table access for anonymous visitors |
 | `…090300_dossier_rules.sql` | Lifecycle rules (draft → submitted → approved → sealed → revoked), `transition_dossier()`, `seal_dossier()`, and `public_dossier()` for the verifier |
 | `…110000_api_role_grants.sql` | Explicit table privileges for the engine (`service_role`) and signed-in users (`authenticated`) |
+| `20261104090000_draft_dossiers.sql` | `create_draft_dossier()` (one transaction: replace an earlier draft of the same statement, insert the dossier and its rows, audit), `fee_cents` on ledger rows, and a fix so a draft with rows can be deleted |
 
 ## Every new table needs explicit GRANTs
 
@@ -19,6 +20,7 @@ Our project gives the API roles (`anon`, `authenticated`, `service_role`) **no t
 - Club members see only their own club. Only managers and treasurers see the roster.
 - In the browser, the manager can only re-tag or remove ledger rows (category, branch, fixture), and only while the dossier is a draft. Amounts, dates and receipt numbers can't be edited from the browser.
 - Status changes go only through `transition_dossier()` (submit: manager with passkey signature; approve: treasurer with passkey signature and no open attestations; revoke: manager or treasurer, with a reason) and `seal_dossier()`. Both are callable only by the engine's service role.
+- Drafts are created only by `create_draft_dossier()` (engine only, for the club's manager). One statement maps to one live dossier: saving it again replaces the draft, and a statement already in a submitted, approved or sealed dossier is refused.
 - Sealed dossiers can only be revoked; revoked ones never change. Approvals and audit entries can't be edited or deleted, even by the service role.
 - Passkeys are saved only by the backend (engine or a Next.js route handler using the secret key), after it has verified the WebAuthn registration against the challenge it issued. Browsers can read their own passkeys but can't insert one.
 - Anonymous visitors can't read any table. They can call `public_dossier(id)`, which returns a sealed or revoked dossier by ID (no listing) with only the fields a verifier needs.

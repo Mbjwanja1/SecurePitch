@@ -11,9 +11,16 @@ from typing import Any
 
 import httpx
 
+# Postgres error codes raised on purpose by our own database functions. Their messages are
+# written to be shown to users ("this statement is already in a submitted dossier").
+OUR_FUNCTION_ERRORS = {"42501", "23505", "23514", "P0001"}
+
 
 class SupabaseError(RuntimeError):
-    pass
+    def __init__(self, message: str, status: int = 0, code: str | None = None) -> None:
+        super().__init__(message)
+        self.status = status
+        self.code = code
 
 
 class Supabase:
@@ -28,13 +35,17 @@ class Supabase:
 
     def _ok(self, r: httpx.Response, what: str) -> httpx.Response:
         if r.is_error:
-            # Status and Postgres error code only: never the request body.
-            code = (
-                r.json().get("code")
-                if r.headers.get("content-type", "").startswith("application/json")
-                else None
+            # Never the request body. Only messages from our own functions are passed on.
+            data = (
+                r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
             )
-            raise SupabaseError(f"Couldn't {what}: HTTP {r.status_code} {code or ''}".strip())
+            code = data.get("code") if isinstance(data, dict) else None
+            message = data.get("message") if code in OUR_FUNCTION_ERRORS else None
+            raise SupabaseError(
+                message or f"Couldn't {what}: HTTP {r.status_code} {code or ''}".strip(),
+                status=r.status_code,
+                code=code,
+            )
         return r
 
     def role_of(self, club_id: str, user_id: str) -> str | None:
@@ -81,3 +92,11 @@ class Supabase:
             ),
             "save the roster",
         )
+
+    def create_draft_dossier(self, params: dict[str, Any]) -> dict[str, Any]:
+        """One transaction in Postgres: replace any earlier draft of this statement, insert the
+        dossier and its rows, write the audit entry (supabase/migrations/…_draft_dossiers.sql)."""
+        r = self._ok(
+            self.http.post("/rpc/create_draft_dossier", json=params), "create the draft dossier"
+        )
+        return r.json()
