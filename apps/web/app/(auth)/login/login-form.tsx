@@ -1,120 +1,64 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { signInErrorMessage } from "@/lib/auth-errors";
 import { safeNext } from "@/lib/safe-redirect";
 import { createClient } from "@/lib/supabase/client";
 
-// Supabase sends at most one sign-in email per address per minute.
-const RESEND_COOLDOWN_SECONDS = 60;
-
+// Email + password sign-in. Accounts are created by a club admin (tools/onboard_member.py);
+// there is no public sign-up. Emailed sign-in codes return once we have an email provider.
 export function LoginForm() {
   const router = useRouter();
   const rawNext = useSearchParams().get("next");
-  const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
 
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const timer = setTimeout(() => setCooldown((s) => s - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [cooldown]);
-
-  async function sendCode(e?: FormEvent) {
-    e?.preventDefault();
-    if (cooldown > 0) return;
-    setBusy(true);
-    setError(null);
-    const { error } = await createClient().auth.signInWithOtp({
-      email,
-      // Accounts are created by invitation only (Supabase dashboard → Authentication → Users).
-      options: { shouldCreateUser: false },
-    });
-    setBusy(false);
-    if (error) {
-      if (error.code === "over_email_send_rate_limit" || error.status === 429) {
-        setCooldown(RESEND_COOLDOWN_SECONDS);
-        setError("A code was sent very recently. Wait a minute, then try again.");
-      } else if (error.message.toLowerCase().includes("signups not allowed")) {
-        setError("There's no SecurePitch account for this email. Ask your club admin to invite you.");
-      } else {
-        setError(`Couldn't send the code: ${error.message}`);
-      }
-      return;
-    }
-    setCooldown(RESEND_COOLDOWN_SECONDS);
-    setStep("code");
-  }
-
-  async function verifyCode(e: FormEvent) {
+  async function signIn(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { error } = await createClient().auth.verifyOtp({ email, token: code, type: "email" });
-    setBusy(false);
+    const { error } = await createClient().auth.signInWithPassword({ email, password });
     if (error) {
-      setError("That code is wrong or has expired. Check the latest email or send a new code.");
+      setBusy(false);
+      setError(signInErrorMessage(error));
+      setPassword("");
       return;
     }
     router.replace(safeNext(rawNext, window.location.origin));
     router.refresh();
   }
 
-  const waitLabel = cooldown > 0 ? ` (${cooldown}s)` : "";
-
-  if (step === "email") {
-    return (
-      <form onSubmit={sendCode} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            inputMode="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value.trim())}
-            placeholder="coach@example.com"
-          />
-        </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <Button type="submit" disabled={busy || !email || cooldown > 0}>
-          {busy ? "Sending…" : `Email me a sign-in code${waitLabel}`}
-        </Button>
-      </form>
-    );
-  }
-
   return (
-    <form onSubmit={verifyCode} className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">
-        We sent a code to <span className="font-medium text-foreground">{email}</span>.
-      </p>
+    <form onSubmit={signIn} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="code">Sign-in code</Label>
+        <Label htmlFor="email">Email</Label>
         <Input
-          id="code"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          pattern="[0-9]{6,10}"
-          maxLength={10}
+          id="email"
+          type="email"
+          autoComplete="email"
+          inputMode="email"
           required
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-          className="tracking-[0.3em] text-lg"
+          value={email}
+          onChange={(e) => setEmail(e.target.value.trim())}
+          placeholder="coach@example.com"
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="password">Password</Label>
+        <Input
+          id="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
         />
       </div>
       {error && (
@@ -122,30 +66,12 @@ export function LoginForm() {
           {error}
         </p>
       )}
-      <Button type="submit" disabled={busy || code.length < 6}>
-        {busy ? "Checking…" : "Sign in"}
+      <Button type="submit" disabled={busy || !email || !password}>
+        {busy ? "Signing in…" : "Sign in"}
       </Button>
-      <div className="flex justify-between text-sm">
-        <button
-          type="button"
-          className="text-muted-foreground underline-offset-4 hover:underline"
-          onClick={() => {
-            setStep("email");
-            setCode("");
-            setError(null);
-          }}
-        >
-          Use a different email
-        </button>
-        <button
-          type="button"
-          className="text-muted-foreground underline-offset-4 hover:underline disabled:no-underline disabled:opacity-50"
-          disabled={busy || cooldown > 0}
-          onClick={() => sendCode()}
-        >
-          {`Send a new code${waitLabel}`}
-        </button>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Forgot your password? Ask your club admin to reset it.
+      </p>
     </form>
   );
 }
