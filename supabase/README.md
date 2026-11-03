@@ -20,6 +20,7 @@ Our project gives the API roles (`anon`, `authenticated`, `service_role`) **no t
 - In the browser, the manager can only re-tag or remove ledger rows (category, branch, fixture), and only while the dossier is a draft. Amounts, dates and receipt numbers can't be edited from the browser.
 - Status changes go only through `transition_dossier()` (submit: manager with passkey signature; approve: treasurer with passkey signature and no open attestations; revoke: manager or treasurer, with a reason) and `seal_dossier()`. Both are callable only by the engine's service role.
 - Sealed dossiers can only be revoked; revoked ones never change. Approvals and audit entries can't be edited or deleted, even by the service role.
+- Passkeys are saved only by the backend (engine or a Next.js route handler using the secret key), after it has verified the WebAuthn registration against the challenge it issued. Browsers can read their own passkeys but can't insert one.
 - Anonymous visitors can't read any table. They can call `public_dossier(id)`, which returns a sealed or revoked dossier by ID (no listing) with only the fields a verifier needs.
 
 ## Test the migrations locally

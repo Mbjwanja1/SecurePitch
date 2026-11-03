@@ -138,6 +138,9 @@ select tests.denied($$select public.transition_dossier('20000000-0000-0000-0000-
                     'browser users cannot call the state machine directly');
 select tests.denied($$insert into public.audit_log (action, hash) values ('forged', 'x')$$,
                     'manager cannot write to the audit log');
+select tests.denied($$insert into public.webauthn_credentials (id, user_id, public_key)
+                    values ('cred-self', '00000000-0000-0000-0000-00000000000a', 'unverified-key')$$,
+                    'a browser cannot save a passkey without server-side verification');
 
 \warn '--- engine (service role): submit'
 reset role; select tests.act_as(null, 'service_role'); set role service_role;
