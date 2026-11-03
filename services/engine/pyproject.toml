@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "SecurePitch engine: in-memory statement processing, roster matching and dossier sealing"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "boto3>=1.35",
+    "cryptography>=44",
     "fastapi>=0.115",
+    "rfc8785>=0.1.4",
     "uvicorn[standard]>=0.32",
 ]
 
@@ -12,7 +15,7 @@ dependencies = [
 dev = [
     "httpx>=0.27",
     "pytest>=8.3",
-    "ruff>=0.11",
+    "ruff==0.11.8",  # same version as the pre-commit hook
 ]
 
 [tool.uv]
