@@ -1,0 +1,62 @@
+# ---------------------------------------------------------------
+# Sensitive data. Real statements, rosters and phone numbers must
+# never reach git. Keep them in fixtures/private/ only.
+# ---------------------------------------------------------------
+fixtures/private/*
+!fixtures/private/README.md
+
+# Secrets and environment files (only the .example templates are tracked)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+credentials
+.aws/
+
+# Dossiers generated during local development
+out-dossiers/
+*.dossier.pdf
+
+# ---------------------------------------------------------------
+# Python (services/engine)
+# ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ---------------------------------------------------------------
+# Node / Next.js (apps/web)
+# ---------------------------------------------------------------
+node_modules/
+.next/
+out/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+test-results/
+playwright-report/
+
+# ---------------------------------------------------------------
+# Supabase CLI local state
+# ---------------------------------------------------------------
+supabase/.branches/
+supabase/.temp/
+
+# ---------------------------------------------------------------
+# OS and editors (shared VS Code settings are tracked)
+# ---------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json

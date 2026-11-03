@@ -1,0 +1,20 @@
+# Store text with LF endings so Windows and Linux (CI, Docker) agree.
+* text=auto eol=lf
+
+# Windows scripts keep CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files: never diff or convert.
+*.pdf  binary
+*.xlsx binary
+*.xls  binary
+*.ods  binary
+*.heic binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.ico  binary
+*.woff2 binary

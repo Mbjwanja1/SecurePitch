@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hygiene:
+    name: Hygiene and secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so gitleaks can scan every commit
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run pre-commit hooks on all files
+        uses: pre-commit/action@v3.0.1
+        env:
+          # no-commit-to-branch would fail on pushes to main; the history scan below replaces gitleaks here.
+          SKIP: no-commit-to-branch,gitleaks
+      # The official release binary, checked against a checksum pinned here, runs as the runner
+      # user: no Docker Hub rate limits and no root-vs-runner "dubious ownership" errors.
+      - name: Install gitleaks (checksum-verified)
+        env:
+          GITLEAKS_VERSION: 8.24.2
+          GITLEAKS_SHA256: fa0500f6b7e41d28791ebc680f5dd9899cd42b58629218a5f041efa899151a8e
+        run: |
+          curl -sSfL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum --check --strict
+          tar -xzf gitleaks.tar.gz -C "$RUNNER_TEMP" gitleaks
+          rm gitleaks.tar.gz
+      - name: Scan full git history for secrets and phone numbers
+        run: '"$RUNNER_TEMP/gitleaks" git . --config .gitleaks.toml --redact --verbose'
+
+  # The engine and web jobs switch themselves on once their projects exist.
+  engine:
+    name: Engine (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/engine
+    steps:
+      - uses: actions/checkout@v4
+      - id: present
+        working-directory: .
+        run: |
+          if [ -f services/engine/pyproject.toml ]; then echo "yes=true" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.present.outputs.yes == 'true'
+        uses: astral-sh/setup-uv@v6
+      - if: steps.present.outputs.yes == 'true'
+        run: uv sync --locked
+      - if: steps.present.outputs.yes == 'true'
+        run: uv run ruff check .
+      - if: steps.present.outputs.yes == 'true'
+        run: uv run ruff format --check .
+      - if: steps.present.outputs.yes == 'true'
+        run: uv run pytest -q
+      - if: steps.present.outputs.yes == 'true'
+        name: Build the Docker image
+        run: docker build -t securepitch-engine:ci .
+      # pytest runs on a writable runner, so code that writes temp files to disk would pass
+      # there and fail in production. Run the image with the same lock-down as
+      # docker-compose.yml and prove the "nothing touches disk" guarantees hold.
+      - if: steps.present.outputs.yes == 'true'
+        name: Smoke-test the image read-only, as in production
+        env:
+          KEY: ci-smoke-test-key-not-a-real-secret # gitleaks:allow
+        run: |
+          docker run -d --name engine-ci --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
+            --cap-drop=ALL --security-opt no-new-privileges \
+            -e ENGINE_INTERNAL_KEY="$KEY" -p 127.0.0.1:8000:8000 securepitch-engine:ci
+          for i in $(seq 1 30); do curl -fsS localhost:8000/health && break; sleep 1; done
+          curl -fsS -H "X-Internal-Key: $KEY" localhost:8000/v1/ping | python3 -c '
+          import json, sys
+          r = json.load(sys.stdin)
+          print(r)
+          assert r["root_filesystem_read_only"], "container root filesystem is writable"
+          assert r["tmp_is_ram"], "/tmp is not RAM-backed"
+          ' || { docker logs engine-ci; exit 1; }
+          if docker exec engine-ci python -c "open('/app/probe', 'w')" 2>/dev/null; then
+            echo "Wrote a file to the container's disk; it must be read-only"; exit 1
+          fi
+          docker rm -f engine-ci
+
+  web:
+    name: Web (Next.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - id: present
+        working-directory: .
+        run: |
+          if [ -f apps/web/package.json ]; then echo "yes=true" >> "$GITHUB_OUTPUT"; fi
+      # Fail with a clear message instead of a cryptic setup error. pnpm/action-setup reads the
+      # pnpm version from "packageManager" (create-next-app doesn't add it), and the pnpm cache
+      # and --frozen-lockfile both need a committed lockfile.
+      - if: steps.present.outputs.yes == 'true'
+        name: Check pnpm version and lockfile are committed
+        run: |
+          grep -q '"packageManager": *"pnpm@' package.json || {
+            echo '::error file=apps/web/package.json::Add "packageManager": "pnpm@9.15.9" (run: pnpm pkg set packageManager=pnpm@9.15.9)'; exit 1; }
+          test -f pnpm-lock.yaml || {
+            echo '::error::apps/web/pnpm-lock.yaml is missing; run pnpm install and commit it'; exit 1; }
+      - if: steps.present.outputs.yes == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: apps/web/package.json
+      - if: steps.present.outputs.yes == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - if: steps.present.outputs.yes == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.present.outputs.yes == 'true'
+        run: pnpm lint
+      - if: steps.present.outputs.yes == 'true'
+        run: pnpm exec tsc --noEmit
+      - if: steps.present.outputs.yes == 'true'
+        run: pnpm test --if-present
