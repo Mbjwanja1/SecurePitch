@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from app import __version__
 from app.config import load_settings
+from app.middleware import RequestGate
 from app.routers import health
 
 
@@ -17,6 +18,15 @@ def create_app() -> FastAPI:
     )
     app.state.settings = settings
     app.include_router(health.router)
+
+    public_paths = {"/health"} | ({"/docs", "/openapi.json"} if settings.is_dev else set())
+    # Outermost layer: checks the key and body size before any request body is read.
+    app.add_middleware(
+        RequestGate,
+        internal_key=settings.internal_key,
+        public_paths=public_paths,
+        max_body_bytes=settings.max_body_bytes,
+    )
     return app
 
 

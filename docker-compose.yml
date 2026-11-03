@@ -34,6 +34,10 @@ services:
       engine:
         condition: service_healthy
     read_only: true
+    # Precaution: quick tunnels run fine read-only today (tested), but give cloudflared RAM
+    # scratch space in case a future version writes temporary files.
+    tmpfs:
+      - /tmp:size=16m,mode=1777,noexec,nosuid,nodev
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
