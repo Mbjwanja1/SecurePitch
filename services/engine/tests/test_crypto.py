@@ -164,3 +164,55 @@ def test_kms_signer_sends_digest_with_correct_parameters() -> None:
         signer = KmsSigner("sp-2026-01", "alias/securepitch-seal", client)
         sig = signer.sign_digest(digest)
         assert verify_digest(signer.public_key_der(), digest, sig)
+
+
+# ---- review fixes (PR 4) ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Zm9v", b"foo"),
+        ("Zm8", b"fo"),
+        ("Zm8=", b"fo"),
+        ("Zg==", b"f"),
+        ("Zm9v=", b"foo"),
+        ("", b""),
+    ],
+)
+def test_b64url_decode_accepts_with_or_without_padding(text: str, expected: bytes) -> None:
+    assert b64url_decode(text) == expected
+
+
+@pytest.mark.parametrize("bad", ["Zm9v!!", "Zm 9v", "Zm9v+", "Z", "Zg===", "Zm9v/"])
+def test_b64url_decode_rejects_invalid_input_instead_of_skipping_it(bad: str) -> None:
+    with pytest.raises(ValueError):
+        b64url_decode(bad)
+
+
+def test_kms_signer_uses_credentials_from_the_given_mapping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AMBIENTKEYIDSHOULDNOTBEUSED")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "ambient")
+    signer = KmsSigner.from_env(
+        {
+            "KMS_KID": "sp-test",
+            "KMS_KEY_ID": "alias/securepitch-seal",
+            "AWS_REGION": "af-south-1",
+            "AWS_ACCESS_KEY_ID": "EXPLICITKEYIDFROMMAPPING",
+            "AWS_SECRET_ACCESS_KEY": "explicit",  # noqa: S106 - fake value
+        }
+    )
+    creds = signer._client._request_signer._credentials
+    assert creds.access_key == "EXPLICITKEYIDFROMMAPPING"
+    assert signer._client.meta.region_name == "af-south-1"
+
+
+def test_kms_signer_without_credentials_uses_the_default_chain(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AMBIENTKEYIDFROMENVIRONMENT")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "ambient")
+    signer = KmsSigner.from_env({"KMS_KID": "sp-test", "KMS_KEY_ID": "alias/securepitch-seal"})
+    assert signer._client._request_signer._credentials.access_key == "AMBIENTKEYIDFROMENVIRONMENT"

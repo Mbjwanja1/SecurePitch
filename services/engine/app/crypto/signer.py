@@ -89,7 +89,19 @@ class KmsSigner:
     def from_env(cls, env: Mapping[str, str]) -> KmsSigner:
         import boto3  # imported lazily so local development never needs AWS libraries loaded
 
-        client = boto3.client("kms", region_name=env.get("AWS_REGION", "af-south-1"))
+        # Use credentials from the mapping we were given, so an explicit config (tests,
+        # staging) is honoured. If it has none, boto3 falls back to its usual chain
+        # (environment variables, ~/.aws, an IAM role).
+        credentials = {
+            "aws_access_key_id": env.get("AWS_ACCESS_KEY_ID"),
+            "aws_secret_access_key": env.get("AWS_SECRET_ACCESS_KEY"),
+            "aws_session_token": env.get("AWS_SESSION_TOKEN"),
+        }
+        client = boto3.client(
+            "kms",
+            region_name=env.get("AWS_REGION", "af-south-1"),
+            **{k: v for k, v in credentials.items() if v},
+        )
         return cls(env["KMS_KID"], env["KMS_KEY_ID"], client)
 
     def sign_digest(self, digest: bytes) -> bytes:
