@@ -32,7 +32,11 @@ ROLES = ("manager", "treasurer", "captain")
 
 class Supabase:
     def __init__(self, url: str, key: str) -> None:
-        self.http = httpx.Client(base_url=url.rstrip("/"), headers={"apikey": key}, timeout=20)
+        # New sb_secret_ keys work with apikey alone; legacy service_role JWTs also need the
+        # Authorization header, or PostgREST runs the request as anon. Sending both works for
+        # either kind (tested on our project's sb_secret_ key: 200 with and without).
+        headers = {"apikey": key, "Authorization": f"Bearer {key}"}
+        self.http = httpx.Client(base_url=url.rstrip("/"), headers=headers, timeout=20)
 
     def _check(self, r: httpx.Response, what: str) -> httpx.Response:
         if r.is_error:

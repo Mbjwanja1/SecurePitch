@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
@@ -11,19 +12,27 @@ const ROLE_LABEL: Record<string, string> = {
   captain: "Captain",
 };
 
-type Membership = { role: string; display_name: string; clubs: { name: string } | null };
+type Membership = {
+  club_id: string;
+  role: string;
+  display_name: string;
+  clubs: { name: string } | null;
+};
 
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  // The layout checks too, but this is a separate getUser() call: if the session expired in
+  // between (or Supabase was briefly unreachable), send them to sign in instead of crashing.
+  if (!user) redirect("/login?next=/dashboard");
 
   // Read with the user's own session: row-level security returns only their memberships.
   const { data, error } = await supabase
     .from("club_members")
-    .select("role, display_name, clubs(name)")
-    .eq("user_id", user!.id);
+    .select("club_id, role, display_name, clubs(name)")
+    .eq("user_id", user.id);
   const memberships = (data ?? []) as unknown as Membership[];
 
   return (
@@ -47,7 +56,7 @@ export default async function DashboardPage() {
         ) : (
           <ul className="flex flex-col gap-2">
             {memberships.map((m) => (
-              <li key={m.clubs?.name ?? m.role}>
+              <li key={m.club_id}>
                 <Card>
                   <CardHeader>
                     <CardTitle>{m.clubs?.name ?? "Club"}</CardTitle>
