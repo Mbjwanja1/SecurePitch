@@ -139,6 +139,11 @@ SAFE_WORDS = {
 }
 
 
+def is_detail_header(row: list[str | None]) -> bool:
+    """True for the detail table's header row ("Receipt No. | Completion Time | ...")."""
+    return (row[0] or "").strip().lower().startswith("receipt")
+
+
 def mask(text: str | None) -> str:
     """Keep the shape and known statement wording of text; hide everything else."""
     if not text:
@@ -193,7 +198,17 @@ def main(path: str) -> None:
     pdf_path = Path(path)
     raw = pdf_path.read_bytes()
     password = password_for(pdf_path) or ""
-    print(f"file: {re.sub(r'[0-9]', '#', pdf_path.name)}  ({len(raw):,} bytes)")
+    # The filename is never printed: statements are often saved with the holder's name and
+    # number in it, and masking digits alone would still show the name.
+    print(f"file: <name redacted>.pdf  ({len(raw):,} bytes)")
+    try:
+        pikepdf.open(io.BytesIO(raw), password=password).close()
+    except pikepdf.PasswordError:
+        sys.exit(
+            "Couldn't open the statement: its password is missing or wrong.\n"
+            "Add a line   <exact PDF filename>=<password>   to statements.env in the same folder\n"
+            "as the PDF (keep both inside fixtures/private/, which git ignores)."
+        )
 
     # Structure and tamper signals (pikepdf) ---------------------------------------------------
     with pikepdf.open(io.BytesIO(raw), password=password) as doc:
@@ -246,7 +261,10 @@ def main(path: str) -> None:
                 header = " | ".join(mask(c) for c in table[0])
                 header_counts[header] += 1
                 if "RECEIPT" in (table[0][0] or "").upper() or len(table[0]) >= 7:
-                    all_rows.extend(r for r in table[1:] if any(r))
+                    # A table continued from the previous page may have no header row; only
+                    # skip row 0 when it really is the header.
+                    body = table[1:] if is_detail_header(table[0]) else table
+                    all_rows.extend(r for r in body if any(r))
                 elif "TRANSACTION TYPE" in header.upper():
                     summary_rows.extend(table[1:])
 
@@ -315,10 +333,11 @@ def balance_chain_breaks(rows: list[list[str | None]]) -> tuple[int, int]:
     order: list[int] = []
     for group in groups:
         best = group
-        if order and len(group) <= 6:
+        if len(group) <= 6:
+            # The first group has no earlier balance, so it only has to agree with itself.
+            anchor = order[-1:]
             for candidate in permutations(group):
-                trial = [order[-1], *candidate]
-                if breaks(trial) == 0:
+                if breaks([*anchor, *candidate]) == 0:
                     best = list(candidate)
                     break
         order.extend(best)

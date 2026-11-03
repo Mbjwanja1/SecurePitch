@@ -5,10 +5,13 @@
 fixtures/private/*
 !fixtures/private/README.md
 
-# Secrets and environment files (only the .example templates are tracked)
+# Secrets and environment files (only the .example templates are tracked). *.env also covers
+# files like statements.env if a statement is ever inspected outside fixtures/private/.
 .env
 .env.*
+*.env
 !.env.example
+!*.env.example
 *.pem
 *.key
 *.p12

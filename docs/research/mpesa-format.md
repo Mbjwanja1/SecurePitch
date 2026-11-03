@@ -42,6 +42,8 @@ SUMMARY
 
 All 582 rows extracted cleanly with pdfplumber's `extract_tables()`: 7 columns on every row and every page.
 
+In this sample the header row repeats on all 17 pages. **Don't rely on that:** a table continued across a page may arrive without its header, so the parser only skips the first row when it actually is the header (`Receipt No. …`).
+
 | # | Column | Format | Notes |
 |---|---|---|---|
 | 0 | Receipt No. | 10 uppercase letters/digits, e.g. `AAA999AAAA` | Matches `dossier_items.tx` |
