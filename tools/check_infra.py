@@ -169,6 +169,26 @@ def run_checks() -> None:
         )
         return f"server {out.stdout.strip()}"
 
+    # With swap on, the Linux VM can page the engine's in-memory statement data (RAM-backed
+    # /tmp, process memory) out to a swap file on disk. docs/INFRA_SETUP.md step 7.
+    @check("Docker VM has no swap")
+    def _swap() -> str:
+        out = subprocess.run(  # noqa: S603 - fixed argument list, no user input
+            ["docker", "run", "--rm", "alpine:3.20", "cat", "/proc/meminfo"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=True,
+        )
+        lines = out.stdout.splitlines()
+        swap_kb = next(int(line.split()[1]) for line in lines if line.startswith("SwapTotal:"))
+        if swap_kb:
+            raise RuntimeError(
+                f"{swap_kb // 1024} MB of swap: add swap=0 under [wsl2] in "
+                "%UserProfile%\\.wslconfig, run `wsl --shutdown`, restart Docker Desktop"
+            )
+        return "swap is off"
+
     signer = os.environ.get("SIGNER", "kms").strip().lower()
     if signer == "local":
         local_signer_checks()
