@@ -204,6 +204,25 @@ def run_checks() -> None:
         r.raise_for_status()
         return f"{url} admin API accepted the key"
 
+    # Accounts are created by admins (tools/onboard_member.py). With public sign-ups on, anyone
+    # holding the publishable key (which ships in the web app) could call /auth/v1/signup.
+    @check("Public sign-ups are disabled")
+    def _signups() -> str:
+        require("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")
+        url = os.environ["SUPABASE_URL"].rstrip("/")
+        r = httpx.get(
+            f"{url}/auth/v1/settings",
+            headers={"apikey": os.environ["SUPABASE_SERVICE_ROLE_KEY"]},
+            timeout=15,
+        )
+        r.raise_for_status()
+        if not r.json().get("disable_signup"):
+            raise RuntimeError(
+                "public sign-ups are ON: Supabase dashboard -> Authentication -> Sign In / "
+                "Providers -> turn off 'Allow new users to sign up'"
+            )
+        return "only admins can create accounts"
+
     # Only migrations connect to Postgres directly; the engine uses HTTPS (ADR 0002). So a
     # blocked database port is a warning, not a failure.
     @check("Database login (for migrations only)", required=False)

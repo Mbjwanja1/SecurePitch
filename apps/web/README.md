@@ -20,20 +20,20 @@ pnpm dev                       # http://localhost:3000
 
 ## Sign-in
 
-Users sign in with a **6-digit code sent by email** (Supabase email OTP). There is no public sign-up: accounts are created by invitation.
+Users sign in with **email and password**. There is no public sign-up and no "forgot password" email: we don't have an email provider, so a club admin creates accounts and resets passwords. (Emailed sign-in codes are in git history and can return once SMTP is set up.) Approving and sealing a dossier will still require a passkey.
 
-One-time Supabase setup:
+**One-time Supabase setting:** Authentication → Sign In / Providers → turn **off** "Allow new users to sign up". The publishable key ships in the browser, so with sign-ups on, anyone could create an account by calling Supabase directly. `tools/check_infra.py` fails until it's off.
 
-1. **Authentication → Email Templates → Magic Link**: replace the body with a message containing `{{ .Token }}`, for example:
-   ```html
-   <h2>Your SecurePitch sign-in code</h2>
-   <p>Enter this code to sign in: <strong>{{ .Token }}</strong></p>
-   <p>It expires in 1 hour. If you didn't ask for it, ignore this email.</p>
-   ```
-   Without this change Supabase emails a link instead of a code.
-2. **Authentication → Users → Add user → Send invitation** for each person who needs access.
+**Adding someone to a club** (from the repo root; uses the engine's secret key from `services/engine/.env`):
 
-Supabase's built-in email service is for testing only: it sends a few emails an hour, and only to members of the Supabase organisation. Before the field test with real club officials, configure custom SMTP (Authentication → Emails → SMTP settings).
+```bash
+uv run tools/onboard_member.py --club "Nairobi City Inspectorate Lionesses" \
+    --email coach@example.com --name "Coach Eugene" --role manager
+```
+
+It creates the club if it doesn't exist, creates the account already confirmed, and adds the membership. You type the password at a hidden prompt (at least 12 characters), or pass `--generate-password` to have one generated and shown once. Give it to the person privately, in person or by phone. Running it again for an existing account adds or updates the membership and leaves the password unchanged.
+
+**Resetting a password:** Supabase dashboard → Authentication → Users → the user → Reset password.
 
 ## Layout
 
