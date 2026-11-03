@@ -9,7 +9,7 @@ This document is the contract between the engine that seals dossiers and the ver
 | Data | Encoding |
 |---|---|
 | Hashes, Merkle roots, digests | lowercase hex |
-| Signatures, public keys, salts, private keys | base64url **without** padding |
+| Signatures, public keys, salts, private keys | base64url **without** padding when writing. Decoders also accept padded input and **reject** any character outside `A-Z a-z 0-9 - _` instead of skipping it. |
 | Money | integer cents: KES 250 → `25000` |
 | Timestamps | ISO 8601 with offset: `2026-10-17T07:15:00+03:00` |
 | Ratios and scores | integer basis points: 94% → `9400` |

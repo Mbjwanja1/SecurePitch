@@ -8,6 +8,10 @@
 
 # Binary files: never diff or convert.
 *.pdf  binary
+*.xlsx binary
+*.xls  binary
+*.ods  binary
+*.heic binary
 *.png  binary
 *.jpg  binary
 *.jpeg binary
