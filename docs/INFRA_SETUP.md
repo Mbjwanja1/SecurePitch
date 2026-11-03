@@ -91,16 +91,25 @@ The engine runs in Docker Desktop on the team laptop, reached through a Cloudfla
 uv run tools/check_infra.py
 ```
 
-Expected output when everything is right:
+Expected output when everything is right (with `SIGNER=kms`):
 
-```
+```text
 PASS  Docker engine running
 PASS  AWS credentials valid                       arn:aws:iam::<account>:user/securepitch-engine
 PASS  KMS key is ECC_NIST_P256, SIGN_VERIFY, enabled
 PASS  KMS sign -> local verify round trip         valid DER signature, 7x bytes
 PASS  IAM user is sign-only (cannot list keys)    kms:ListKeys denied, as intended
-PASS  Supabase API reachable with service key
-PASS  Engine secrets generated
+PASS  Supabase service key has admin rights
+PASS  Database reachable and accepts login        aws-1-eu-central-1.pooler.supabase.com:5432, Postgres 17.x
+PASS  Engine secrets valid                        internal key length ok; roster pepper is 32 bytes
 ```
 
-The round-trip check signs a digest exactly as the dossier seal will, then verifies it locally with the public key. The least-privilege check passes only if the engine's credentials are *refused* something they shouldn't have.
+With `SIGNER=local` the three AWS-only checks show `SKIP` and a local-key round trip runs instead.
+
+What each check proves:
+
+- **Sign round trip:** signs a digest exactly as the dossier seal will, then verifies it locally with the public key.
+- **Sign-only:** passes only if the engine's credentials are *refused* something they shouldn't have.
+- **Admin rights:** calls the Auth admin API, which only a secret key can use. (`/auth/v1/health` would also accept the public publishable key, so it can't catch a pasted wrong key.)
+- **Database:** logs in with `DATABASE_URL` and runs a query. A timeout usually means the network blocks outbound database ports (5432/6543), which campus and office Wi-Fi often do; try a phone hotspot.
+- **Secrets:** checks `ROSTER_PEPPER` is valid base64 of exactly 32 bytes, so a bad value fails here rather than at the first roster import.

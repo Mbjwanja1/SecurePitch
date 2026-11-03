@@ -1,6 +1,8 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["boto3>=1.35", "cryptography>=43", "httpx>=0.27", "python-dotenv>=1.0"]
+# dependencies = [
+#   "boto3>=1.35", "cryptography>=43", "httpx>=0.27", "python-dotenv>=1.0", "psycopg[binary]>=3.2",
+# ]
 # ///
 """Check that SecurePitch's approved resources are live and configured as the plan expects.
 
@@ -22,9 +24,11 @@ import re
 import subprocess
 import sys
 from collections.abc import Callable
+from urllib.parse import urlsplit
 
 import boto3
 import httpx
+import psycopg
 from botocore.exceptions import BotoCoreError, ClientError
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, utils
@@ -165,7 +169,7 @@ def run_checks() -> None:
     else:
         kms_checks(os.environ.get("AWS_REGION", "af-south-1"))
 
-    @check("Supabase API reachable with service key")
+    @check("Supabase service key has admin rights")
     def _supabase() -> str:
         require("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")
         url = os.environ["SUPABASE_URL"].rstrip("/")
@@ -175,16 +179,66 @@ def run_checks() -> None:
                 "(no /rest/v1 or other path)"
             )
         key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
-        r = httpx.get(f"{url}/auth/v1/health", headers={"apikey": key}, timeout=15)
+        headers = {"apikey": key}
+        if key.startswith("eyJ"):  # legacy service_role JWT also needs the Authorization header
+            headers["Authorization"] = f"Bearer {key}"
+        # /auth/v1/health accepts any valid key, including the public publishable key, so it
+        # can't tell the keys apart. The Auth admin API only answers to a secret/service key.
+        r = httpx.get(
+            f"{url}/auth/v1/admin/users",
+            params={"page": 1, "per_page": 1},
+            headers=headers,
+            timeout=15,
+        )
+        if r.status_code in (401, 403):
+            raise RuntimeError(
+                f"HTTP {r.status_code}: SUPABASE_SERVICE_ROLE_KEY isn't a secret key "
+                "(sb_secret_... or legacy service_role); the publishable/anon key won't work here"
+            )
         r.raise_for_status()
-        return f"{url} auth healthy"
+        return f"{url} admin API accepted the key"
 
-    @check("Engine secrets generated")
+    @check("Database reachable and accepts login")
+    def _database() -> str:
+        require("DATABASE_URL")
+        dsn = os.environ["DATABASE_URL"]
+        parts = urlsplit(dsn)
+        where = f"{parts.hostname}:{parts.port or 5432}"
+        try:
+            with psycopg.connect(dsn, connect_timeout=10) as conn:
+                version = conn.execute("show server_version").fetchone()[0]
+        except psycopg.Error as exc:
+            message = str(exc).strip().splitlines()[0]
+            if parts.password:
+                message = message.replace(parts.password, "***")
+            hint = ""
+            if parts.hostname and parts.hostname.startswith("db."):
+                hint = " (direct connections are IPv6-only; use the Session pooler URL)"
+            elif "timeout" in message.lower():
+                hint = (
+                    " (this network may block outbound database ports; campus and office"
+                    " Wi-Fi often do. Try a phone hotspot)"
+                )
+            raise RuntimeError(f"{where}: {message}{hint}") from None
+        if parts.port == 6543:
+            raise RuntimeError(
+                f"{where}: connected, but 6543 is the transaction pooler, which breaks the "
+                "engine's prepared statements; use the Session pooler (port 5432)"
+            )
+        return f"{where}, Postgres {version}"
+
+    @check("Engine secrets valid")
     def _secrets() -> str:
         require("ENGINE_INTERNAL_KEY", "ROSTER_PEPPER")
         if len(os.environ["ENGINE_INTERNAL_KEY"]) < 32:
             raise RuntimeError("ENGINE_INTERNAL_KEY is shorter than 32 characters")
-        return "present"
+        try:
+            pepper = base64.b64decode(os.environ["ROSTER_PEPPER"], validate=True)
+        except ValueError:
+            raise RuntimeError("ROSTER_PEPPER is not valid base64") from None
+        if len(pepper) != 32:
+            raise RuntimeError(f"ROSTER_PEPPER decodes to {len(pepper)} bytes; it must be 32")
+        return "internal key length ok; roster pepper is 32 bytes"
 
 
 def main() -> int:
@@ -199,7 +253,7 @@ def main() -> int:
     except (BotoCoreError, ClientError) as exc:  # e.g. no region or credentials at all
         results.append(("FAIL", "AWS client setup", str(exc)))
 
-    width = max(len(name) for _, name, _ in results)
+    width = max((len(name) for _, name, _ in results), default=20)
     for status, name, detail in results:
         print(f"{status}  {name.ljust(width)}  {detail}")
     failed = sum(status == "FAIL" for status, _, _ in results)
