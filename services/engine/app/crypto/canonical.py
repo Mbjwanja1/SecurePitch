@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+import re
 from typing import Any
 
 import rfc8785
@@ -49,5 +50,12 @@ def b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
+_B64URL = re.compile(r"[A-Za-z0-9_-]*")
+
+
 def b64url_decode(text: str) -> bytes:
-    return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
+    """Decode base64url with or without padding. Anything else is rejected, not skipped."""
+    body = text.rstrip("=")
+    if not _B64URL.fullmatch(body) or len(body) % 4 == 1 or len(text) - len(body) > 2:
+        raise ValueError("invalid base64url")
+    return base64.urlsafe_b64decode(body + "=" * (-len(body) % 4))
