@@ -157,6 +157,16 @@ def local_signer_checks() -> None:
         return verify_round_trip(sign, public_der)
 
 
+# How to turn the Docker VM's swap off on each host OS (docs/INFRA_SETUP.md step 7).
+SWAP_FIX = {
+    "win32": "add swap=0 under [wsl2] in %UserProfile%\\.wslconfig, run `wsl --shutdown`, "
+    "restart Docker Desktop",
+    "darwin": "set Docker Desktop > Settings > Resources > Swap to 0, then Apply & restart",
+    "linux": "Docker Desktop: set Settings > Resources > Swap to 0; Docker Engine: run "
+    "`sudo swapoff -a` and remove the swap entries from /etc/fstab",
+}
+
+
 def run_checks() -> None:
     @check("Docker engine running")
     def _docker() -> str:
@@ -183,10 +193,8 @@ def run_checks() -> None:
         lines = out.stdout.splitlines()
         swap_kb = next(int(line.split()[1]) for line in lines if line.startswith("SwapTotal:"))
         if swap_kb:
-            raise RuntimeError(
-                f"{swap_kb // 1024} MB of swap: add swap=0 under [wsl2] in "
-                "%UserProfile%\\.wslconfig, run `wsl --shutdown`, restart Docker Desktop"
-            )
+            fix = SWAP_FIX.get(sys.platform, SWAP_FIX["linux"])
+            raise RuntimeError(f"{swap_kb // 1024} MB of swap: {fix}")
         return "swap is off"
 
     signer = os.environ.get("SIGNER", "kms").strip().lower()

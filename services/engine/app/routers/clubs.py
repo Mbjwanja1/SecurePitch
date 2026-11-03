@@ -59,7 +59,13 @@ def _deps(request: Request) -> tuple[Supabase, bytes]:
         raise HTTPException(
             503, {"code": "not_configured", "message": "Engine database settings are missing"}
         )
-    return db, pepper_from_env(s.roster_pepper)
+    try:
+        pepper = pepper_from_env(s.roster_pepper)
+    except ValueError:  # includes binascii.Error; never echo the setting itself
+        raise HTTPException(
+            503, {"code": "not_configured", "message": "ROSTER_PEPPER isn't 32 bytes of base64"}
+        ) from None
+    return db, pepper
 
 
 async def _require_role(db: Supabase, club_id: str, actor: str, allowed: set[str]) -> str:
@@ -107,7 +113,7 @@ async def import_roster(
                 "club_id": club_id,
                 "player_code": code,
                 "full_name": p.full_name.strip(),
-                "fkf_id": p.fkf_id,
+                "fkf_id": (p.fkf_id or "").strip() or None,
                 "phone_key": pk,
                 "mask_key": mask_key(key, *masked_parts(e164)),
                 "is_minor": p.is_minor,
