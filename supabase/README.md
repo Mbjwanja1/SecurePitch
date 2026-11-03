@@ -8,6 +8,11 @@ Owner: **Chris**. Migrations live in `migrations/` and run in filename order.
 | `…090100_audit_log.sql` | Append-only, hash-chained audit log and `verify_audit_chain()` |
 | `…090200_rls.sql` | Row-level security for every table; no table access for anonymous visitors |
 | `…090300_dossier_rules.sql` | Lifecycle rules (draft → submitted → approved → sealed → revoked), `transition_dossier()`, `seal_dossier()`, and `public_dossier()` for the verifier |
+| `…110000_api_role_grants.sql` | Explicit table privileges for the engine (`service_role`) and signed-in users (`authenticated`) |
+
+## Every new table needs explicit GRANTs
+
+Our project gives the API roles (`anon`, `authenticated`, `service_role`) **no table privileges by default**. A migration that adds a table must also grant what each role needs, at least `select, insert, update, delete` for `service_role` and `select` for `authenticated` where members should read it, or the engine and app get "permission denied". The test stand-in (`tests/supabase_stub.sql`) mirrors this, so a missing grant fails the tests.
 
 ## Rules the database enforces for every caller
 
@@ -15,6 +20,7 @@ Owner: **Chris**. Migrations live in `migrations/` and run in filename order.
 - In the browser, the manager can only re-tag or remove ledger rows (category, branch, fixture), and only while the dossier is a draft. Amounts, dates and receipt numbers can't be edited from the browser.
 - Status changes go only through `transition_dossier()` (submit: manager with passkey signature; approve: treasurer with passkey signature and no open attestations; revoke: manager or treasurer, with a reason) and `seal_dossier()`. Both are callable only by the engine's service role.
 - Sealed dossiers can only be revoked; revoked ones never change. Approvals and audit entries can't be edited or deleted, even by the service role.
+- Passkeys are saved only by the backend (engine or a Next.js route handler using the secret key), after it has verified the WebAuthn registration against the challenge it issued. Browsers can read their own passkeys but can't insert one.
 - Anonymous visitors can't read any table. They can call `public_dossier(id)`, which returns a sealed or revoked dossier by ID (no listing) with only the fields a verifier needs.
 
 ## Test the migrations locally
