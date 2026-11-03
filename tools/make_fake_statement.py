@@ -39,6 +39,7 @@ def main() -> None:
     parser.add_argument("--variant", choices=VARIANTS, default="genuine-layout")
     args = parser.parse_args()
     out = ROOT / "fixtures" / "synthetic" / f"statement_{args.variant}.pdf"
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(VARIANTS[args.variant](lionesses_month()))
     print(f"wrote {out.relative_to(ROOT)} (password {PASSWORD})")
 

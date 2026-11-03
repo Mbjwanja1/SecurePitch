@@ -23,7 +23,7 @@ from app.ingest.models import Kind, ParsedStatement, Row
 
 EAT = timezone(timedelta(hours=3), "EAT")  # Kenya has no daylight saving
 TX_RE = re.compile(r"^[A-Z0-9]{10}$")
-PERIOD_RE = re.compile(r"Statement Period:\s*(\d{1,2} \w{3} \d{4})\s*-\s*(\d{1,2} \w{3} \d{4})")
+PERIOD_RE = re.compile(r"Statement Period\s*:\s*(\d{1,2} \w{3} \d{4})\s*-\s*(\d{1,2} \w{3} \d{4})")
 DETAIL_COLUMNS = 7
 
 
@@ -39,7 +39,8 @@ class StatementError(Exception):
 def _cents(cell: str | None, *, row: int, column: str, signed: bool = False) -> int:
     """'1,234.50' -> 123450. Amounts are unsigned (withdrawals are printed negative);
     balances keep their sign, since an overdrawn balance would be negative."""
-    text = (cell or "").replace(",", "").strip()
+    # Text extraction can leave spaces (even non-breaking ones) inside numbers: "- 250.00".
+    text = re.sub(r"[\s,]", "", cell or "")
     if not text:
         return 0
     try:
@@ -60,9 +61,16 @@ def _pdf_signals(raw: bytes, doc: pikepdf.Pdf) -> PdfSignals:
     fonts: set[str] = set()
     annotations = 0
     for page in doc.pages:
-        annotations += len(page.get("/Annots", []))
-        for font in page.get("/Resources", {}).get("/Font", {}).values():
-            fonts.add(re.sub(r"^/[A-Z]{6}\+", "/", str(font.get("/BaseFont", "?"))))
+        # Malformed files can hold null or non-dictionary objects anywhere: check before walking.
+        annots = page.get("/Annots")
+        annotations += len(annots) if isinstance(annots, pikepdf.Array) else 0
+        resources = page.get("/Resources")
+        font_dict = resources.get("/Font") if isinstance(resources, pikepdf.Dictionary) else None
+        if not isinstance(font_dict, pikepdf.Dictionary):
+            continue
+        for font in font_dict.values():
+            base = font.get("/BaseFont", "?") if isinstance(font, pikepdf.Dictionary) else "?"
+            fonts.add(re.sub(r"^/[A-Z]{6}\+", "/", str(base)))
     return PdfSignals(
         eof_markers=raw.count(b"%%EOF"),
         has_prev_trailer=b"/Prev" in raw,
@@ -93,7 +101,8 @@ def _attach_charges(rows: list[Row]) -> None:
             continue
         parents = [p for p in by_second[r.ts] if p.kind is not Kind.CHARGE and p.withdrawn_cents]
         if parents:
-            parent = parents[0]
+            # Two transfers in one second each get their own fee: prefer one without a fee yet.
+            parent = ([p for p in parents if not p.fee_txs] or parents)[0]
             parent.fee_cents += r.withdrawn_cents
             parent.fee_txs.append(r.tx)
             r.fee_of = parent.tx
@@ -108,9 +117,20 @@ def parse_statement(pdf: bytes, password: str) -> ParsedStatement:
             pages = len(doc.pages)
     except pikepdf.PasswordError:
         raise StatementError("wrong_password", "The statement password is wrong.") from None
-    except pikepdf.PdfError:
+    except (pikepdf.PdfError, ValueError, TypeError, AttributeError, KeyError, IndexError):
+        raise StatementError("unreadable_pdf", "The PDF couldn't be read.") from None
+    if pages == 0:
+        raise StatementError("unreadable_pdf", "The PDF has no pages.")
+
+    try:
+        return _parse_content(pdf, password, signals, pages)
+    except StatementError:
+        raise
+    except Exception:  # noqa: BLE001 - pdfminer raises many types on malformed input
         raise StatementError("unreadable_pdf", "The PDF couldn't be read.") from None
 
+
+def _parse_content(pdf: bytes, password: str, signals: PdfSignals, pages: int) -> ParsedStatement:
     rows: list[Row] = []
     summary: dict[str, tuple[int, int]] = {}
     verification_code: str | None = None

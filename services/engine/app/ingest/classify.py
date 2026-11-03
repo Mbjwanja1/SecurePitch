@@ -10,7 +10,6 @@ from app.ingest.models import Counterparty, Kind
 MASKED = r"(?P<pre>\d{4,6})\*+(?P<suf>\d{3})"
 
 _PATTERNS: list[tuple[Kind, str, re.Pattern[str]]] = [
-    (Kind.CHARGE, "none", re.compile(r"^.*\bCharge$", re.I)),
     (
         Kind.POCHI_OUT,
         "person",
@@ -30,14 +29,14 @@ _PATTERNS: list[tuple[Kind, str, re.Pattern[str]]] = [
         Kind.TILL,
         "till",
         re.compile(
-            r"^Merchant Payment(?: Online)? to\s*(?P<num>\d{5,7})\s*-\s*(?P<name>.*)$", re.I
+            r"^Merchant Payment(?: Online)? to\s*(?P<num>\d{5,8})\s*-\s*(?P<name>.*)$", re.I
         ),
     ),
     (
         Kind.PAYBILL,
         "paybill",
         re.compile(
-            r"^Pay Bill(?: Online)? to\s*(?P<num>\d{5,7})\s*-\s*(?P<name>.*?)"
+            r"^Pay Bill(?: Online)? to\s*(?P<num>\d{5,8})\s*-\s*(?P<name>.*?)"
             r"(?:\s*Acc\.\s*(?P<acct>.*))?$",
             re.I,
         ),
@@ -51,6 +50,10 @@ _PATTERNS: list[tuple[Kind, str, re.Pattern[str]]] = [
     ),
     (Kind.AIRTIME, "none", re.compile(r"^Airtime Purchase\b", re.I)),
     (Kind.BUNDLE, "none", re.compile(r"^Customer Bundle Purchase\b", re.I)),
+    # Last, and only fee wording itself ("Customer Transfer of Funds Charge", "Pay Bill Charge"):
+    # letters and spaces, no " - " separator. Payments to a named merchant always have
+    # " - <name>", so a shop called "FAST CHARGE" stays a Buy Goods payment.
+    (Kind.CHARGE, "none", re.compile(r"^(?!.*\s-\s)[A-Za-z][A-Za-z ]*\bCharge$", re.I)),
 ]
 
 
