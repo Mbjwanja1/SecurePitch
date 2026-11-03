@@ -83,6 +83,9 @@ def build_items(
         if row.kind is Kind.CHARGE and row.fee_of:
             problems.append(f"{tag.tx}: a fee, already counted with {row.fee_of}")
             continue
+        if row.amount_cents <= 0:  # dossier_items requires amt_cents > 0
+            problems.append(f"{tag.tx}: no amount on this row")
+            continue
         if tag.category not in CATEGORIES:
             problems.append(f"{tag.tx}: unknown category {tag.category!r}")
             continue

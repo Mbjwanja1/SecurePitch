@@ -191,7 +191,11 @@ def run_checks() -> None:
             check=True,
         )
         lines = out.stdout.splitlines()
-        swap_kb = next(int(line.split()[1]) for line in lines if line.startswith("SwapTotal:"))
+        swap_kb = next(
+            (int(line.split()[1]) for line in lines if line.startswith("SwapTotal:")), None
+        )
+        if swap_kb is None:  # not 0: an unreadable answer mustn't pass as "swap is off"
+            raise RuntimeError("couldn't read SwapTotal from the Docker VM's /proc/meminfo")
         if swap_kb:
             fix = SWAP_FIX.get(sys.platform, SWAP_FIX["linux"])
             raise RuntimeError(f"{swap_kb // 1024} MB of swap: {fix}")

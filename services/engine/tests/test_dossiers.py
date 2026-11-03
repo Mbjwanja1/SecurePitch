@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import dataclasses
 import json
 from datetime import date
 
@@ -108,6 +109,17 @@ def test_bad_tags_are_explained_by_receipt_number(setup, tags, problem) -> None:
     with pytest.raises(TagError) as err:
         build(setup, tags)
     assert any(problem in p for p in err.value.problems)
+
+
+def test_rows_without_an_amount_are_refused_before_the_database(setup) -> None:
+    parsed, matches, batches, key = setup
+    rows = [
+        dataclasses.replace(r, paid_in_cents=0, withdrawn_cents=0) if r.tx == "SJD0000001" else r
+        for r in parsed.rows
+    ]
+    with pytest.raises(TagError) as err:
+        build_items(rows, [Tag("SJD0000001", "meals")], matches, batches, {FIXTURE}, key)
+    assert err.value.problems == ["SJD0000001: no amount on this row"]
 
 
 # ---- endpoint -----------------------------------------------------------------------------

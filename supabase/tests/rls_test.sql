@@ -292,7 +292,12 @@ select tests.denied($$select public.create_draft_dossier('10000000-0000-0000-000
                     '00000000-0000-0000-0000-00000000000a', '2026-11-01', '2026-11-30', repeat('a1', 32),
                     40, '{}'::jsonb, tests.items('SDB'))$$,
                     'a statement already in a submitted dossier is refused');
-reset role; select tests.act_as('00000000-0000-0000-0000-00000000000a', 'authenticated'); set role authenticated;
+reset role;  -- as the owner, so only the unique index can refuse it
+select tests.denied($$insert into public.dossiers (club_id, period_from, period_to, source_sha256)
+                    values ('10000000-0000-0000-0000-000000000001', '2026-11-01', '2026-11-30',
+                            repeat('a1', 32))$$,
+                    'a second live dossier for one statement is refused by the database');
+select tests.act_as('00000000-0000-0000-0000-00000000000a', 'authenticated'); set role authenticated;
 select tests.denied($$select public.create_draft_dossier('10000000-0000-0000-0000-000000000001',
                     '00000000-0000-0000-0000-00000000000a', '2026-11-01', '2026-11-30', repeat('b2', 32),
                     40, '{}'::jsonb, tests.items('SDC'))$$,

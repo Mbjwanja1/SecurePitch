@@ -43,7 +43,12 @@ begin
 end;
 $$;
 
--- 3. Create a draft dossier and all its ledger rows in one transaction (ADR 0002 rule 2).
+-- 3. One live dossier per statement, enforced by the database too (a backstop for the lock in
+-- create_draft_dossier). Revoked dossiers don't count, so a statement can be resubmitted.
+create unique index dossiers_one_live_per_statement
+  on public.dossiers (club_id, source_sha256) where status <> 'revoked';
+
+-- 4. Create a draft dossier and all its ledger rows in one transaction (ADR 0002 rule 2).
 -- Called only by the engine, which has re-parsed the statement and built p_items from it;
 -- p_actor is the signed-in user from the web app's session (rules 5 and 7).
 create function public.create_draft_dossier(
@@ -68,6 +73,10 @@ begin
   if jsonb_typeof(p_items) is distinct from 'array' or jsonb_array_length(p_items) = 0 then
     raise exception 'a dossier needs at least one ledger row' using errcode = 'check_violation';
   end if;
+
+  -- Two saves of one statement (a double click) take turns: without this, neither sees the
+  -- other's uncommitted draft and both insert. Held until commit; other statements don't wait.
+  perform pg_advisory_xact_lock(hashtextextended(p_club::text || '/' || p_source_sha256, 0));
 
   -- One statement, one live dossier: replace an earlier draft, refuse anything further along.
   for v_existing in
