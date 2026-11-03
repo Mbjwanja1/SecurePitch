@@ -9,6 +9,7 @@ import tempfile
 from datetime import timedelta
 from pathlib import Path
 
+import pikepdf
 import pytest
 from fastapi.testclient import TestClient
 from reportlab.pdfgen import canvas
@@ -309,3 +310,89 @@ def test_real_statement_parses_with_a_clean_integrity_score() -> None:
     assert p.integrity.checks["summary_match"].passed
     assert p.integrity.checks["never_resaved"].passed
     assert all(r.fee_of for r in p.rows if r.kind is Kind.CHARGE)
+
+
+# ---- PR review regressions ----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("details", "kind"),
+    [
+        ("Merchant Payment to 5123456 - FAST CHARGE", Kind.TILL),  # name ends in "Charge"
+        ("Merchant Payment Online to 5123456 - IN CHARGE SALON", Kind.TILL),
+        ("Pay Bill Online to 888880 - SUPER CHARGE Acc. 1", Kind.PAYBILL),
+        ("Merchant Payment to 81234567 - NEW TILL", Kind.TILL),  # 8-digit till
+        ("Pay Bill Online to 40012345 - X Acc. 1", Kind.PAYBILL),  # 8-digit paybill
+        ("Customer Transfer of Funds Charge", Kind.CHARGE),
+        ("Pay Bill Charge", Kind.CHARGE),
+    ],
+)
+def test_classification_review_cases(details: str, kind: Kind) -> None:
+    assert classify(details)[0] is kind
+
+
+@pytest.mark.parametrize(
+    ("cell", "cents"),
+    [("- 250.00", 25000), ("-\xa0250.00", 25000), ("1 250.00", 125000), (" 1,250.00 ", 125000)],
+)
+def test_amounts_tolerate_spaces(cell: str, cents: int) -> None:
+    from app.ingest.parse import _cents
+
+    assert _cents(cell, row=1, column="Withdrawn") == cents
+
+
+def test_period_tolerates_space_before_colon() -> None:
+    from app.ingest.parse import _period
+
+    assert _period("Statement Period : 01 Oct 2026 - 31 Oct 2026")[0].isoformat() == "2026-10-01"
+
+
+def test_each_same_second_transfer_gets_its_own_fee() -> None:
+    from datetime import datetime
+
+    from app.ingest.models import Counterparty, Row
+    from app.ingest.parse import EAT, _attach_charges
+
+    ts = datetime(2026, 10, 17, 7, 15, tzinfo=EAT)
+    person = Counterparty("person")
+    rows = [
+        Row("SJT0000001", ts, "x", "Completed", 0, 25000, 0, Kind.P2P_OUT, person),
+        Row("SJT0000002", ts, "x", "Completed", 0, 30000, 0, Kind.P2P_OUT, person),
+        Row("SJC0000001", ts, "x", "Completed", 0, 700, 0, Kind.CHARGE),
+        Row("SJC0000002", ts, "x", "Completed", 0, 700, 0, Kind.CHARGE),
+    ]
+    _attach_charges(rows)
+    assert [r.fee_cents for r in rows[:2]] == [700, 700]
+
+
+def test_empty_pdf_is_unreadable() -> None:
+    out = io.BytesIO()
+    pikepdf.new().save(out)
+    with pytest.raises(StatementError) as err:
+        parse_statement(out.getvalue(), "")
+    assert err.value.code == "unreadable_pdf"
+
+
+def test_malformed_page_resources_do_not_crash_the_scan() -> None:
+    from app.ingest.parse import _pdf_signals
+
+    pdf = pikepdf.new()
+    pdf.add_blank_page()
+    pdf.pages[0].obj["/Resources"] = pikepdf.Array([1, 2])  # not a dictionary
+    pdf.pages[0].obj["/Annots"] = pikepdf.Name("/Bogus")  # not an array
+    signals = _pdf_signals(b"%%EOF", pdf)
+    assert (signals.annotations, signals.fonts) == (0, ())
+
+
+def test_reader_failures_become_unreadable_pdf_not_500(month, monkeypatch, client) -> None:
+    import pdfplumber
+
+    def broken(*args, **kwargs):
+        raise KeyError("/Font")  # e.g. pdfminer on a malformed font dictionary
+
+    monkeypatch.setattr(pdfplumber, "open", broken)
+    with pytest.raises(StatementError) as err:
+        parse_statement(build_statement(month), PASSWORD)
+    assert err.value.code == "unreadable_pdf"
+    r = _post(client, build_statement(month))
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "unreadable_pdf"
