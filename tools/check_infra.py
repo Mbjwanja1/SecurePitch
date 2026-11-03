@@ -34,17 +34,23 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, utils
 from dotenv import load_dotenv
 
-results: list[tuple[str, str, str]] = []  # (status, name, detail); status is PASS, FAIL or SKIP
+# (status, name, detail); status is PASS, FAIL, WARN or SKIP. Only FAIL makes the script fail.
+results: list[tuple[str, str, str]] = []
 
 
-def check(name: str) -> Callable[[Callable[[], str]], Callable[[], str]]:
-    """Record a check: the function returns a detail string, or raises to fail."""
+def check(name: str, *, required: bool = True) -> Callable[[Callable[[], str]], Callable[[], str]]:
+    """Record a check: the function returns a detail string, or raises to fail.
+
+    A check with required=False reports WARN instead of FAIL: it matters for some tasks
+    (like running migrations) but not for the engine itself.
+    """
 
     def wrap(fn: Callable[[], str]) -> Callable[[], str]:
         try:
             results.append(("PASS", name, fn()))
         except Exception as exc:  # noqa: BLE001 - every failure is reported, never raised
-            results.append(("FAIL", name, f"{type(exc).__name__}: {exc}"))
+            status = "FAIL" if required else "WARN"
+            results.append((status, name, f"{type(exc).__name__}: {exc}"))
         return fn
 
     return wrap
@@ -198,7 +204,9 @@ def run_checks() -> None:
         r.raise_for_status()
         return f"{url} admin API accepted the key"
 
-    @check("Database reachable and accepts login")
+    # Only migrations connect to Postgres directly; the engine uses HTTPS (ADR 0002). So a
+    # blocked database port is a warning, not a failure.
+    @check("Database login (for migrations only)", required=False)
     def _database() -> str:
         require("DATABASE_URL")
         dsn = os.environ["DATABASE_URL"]
@@ -216,14 +224,14 @@ def run_checks() -> None:
                 hint = " (direct connections are IPv6-only; use the Session pooler URL)"
             elif "timeout" in message.lower():
                 hint = (
-                    " (this network may block outbound database ports; campus and office"
-                    " Wi-Fi often do. Try a phone hotspot)"
+                    " (this network blocks outbound database ports. The engine is unaffected;"
+                    " to run migrations, use a phone hotspot or the Supabase SQL editor)"
                 )
             raise RuntimeError(f"{where}: {message}{hint}") from None
         if parts.port == 6543:
             raise RuntimeError(
-                f"{where}: connected, but 6543 is the transaction pooler, which breaks the "
-                "engine's prepared statements; use the Session pooler (port 5432)"
+                f"{where}: connected, but 6543 is the transaction pooler; migrations need "
+                "the Session pooler (port 5432)"
             )
         return f"{where}, Postgres {version}"
 
@@ -256,11 +264,11 @@ def main() -> int:
     width = max((len(name) for _, name, _ in results), default=20)
     for status, name, detail in results:
         print(f"{status}  {name.ljust(width)}  {detail}")
-    failed = sum(status == "FAIL" for status, _, _ in results)
-    skipped = sum(status == "SKIP" for status, _, _ in results)
-    ran = len(results) - skipped
-    print(f"\n{ran - failed}/{ran} checks passed, {skipped} skipped")
-    return 1 if failed else 0
+    counts = {s: sum(status == s for status, _, _ in results) for s in ("FAIL", "WARN", "SKIP")}
+    ran = len(results) - counts["SKIP"]
+    passed = ran - counts["FAIL"] - counts["WARN"]
+    print(f"\n{passed}/{ran} checks passed, {counts['WARN']} warning(s), {counts['SKIP']} skipped")
+    return 1 if counts["FAIL"] else 0
 
 
 if __name__ == "__main__":
