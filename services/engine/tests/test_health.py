@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.config import DEFAULT_MAX_BODY_BYTES
 from app.main import create_app
 
 KEY = "test-key-that-is-long-enough-for-the-engine-1234"
@@ -81,7 +82,7 @@ def test_streamed_upload_over_limit_is_413_when_fastapi_parses_the_body(
 def test_oversized_upload_rejected_end_to_end(client: TestClient) -> None:
     r = client.post(
         "/v1/ping",
-        content=b"x" * (6 * 1024 * 1024 + 1),
+        content=b"x" * (DEFAULT_MAX_BODY_BYTES + 1),
         headers={"X-Internal-Key": KEY},
     )
     assert r.status_code == 413

@@ -243,6 +243,62 @@ select tests.denied($$update public.dossiers set revoke_reason = 'changed'
                     where id = '20000000-0000-0000-0000-000000000001'$$,
                     'a revoked dossier never changes');
 
+\warn '--- draft dossiers (create_draft_dossier)'
+reset role;  -- helpers are created as the owner, then the checks run as the engine
+create function tests.items(p_tx_prefix text) returns jsonb language sql as $$
+  select jsonb_build_array(
+    jsonb_build_object('tx', p_tx_prefix || '0000001', 'ts', '2026-11-07 07:15:00+03', 'amt_cents', 25000,
+      'fee_cents', 700, 'dir', 'out', 'branch', 'B', 'category', 'transport', 'cp_type', 'player',
+      'cp_ref', 'P01', 'fixture_code', 'MD5-2026-11-07', 'salt', 'c2FsdC1mb3ItZHJhZnQ'),
+    jsonb_build_object('tx', p_tx_prefix || '0000002', 'ts', '2026-11-07 11:30:00+03', 'amt_cents', 180000,
+      'dir', 'out', 'branch', 'A', 'category', 'meals', 'cp_type', 'till', 'cp_ref', '5123456',
+      'salt', 'c2FsdC1mb3ItZHJhZnQy'))
+$$;
+grant execute on function tests.items(text) to service_role;
+create table tests.ids (label text primary key, id uuid);
+grant all on tests.ids to service_role;
+select tests.act_as(null, 'service_role'); set role service_role;
+select tests.denied($$select public.create_draft_dossier('10000000-0000-0000-0000-000000000001',
+                    '00000000-0000-0000-0000-00000000000c', '2026-11-01', '2026-11-30', repeat('a1', 32),
+                    40, '{}'::jsonb, tests.items('SDA'))$$, 'only the manager can create a draft');
+select tests.denied($$select public.create_draft_dossier('10000000-0000-0000-0000-000000000001',
+                    '00000000-0000-0000-0000-00000000000a', '2026-11-01', '2026-11-30', repeat('a1', 32),
+                    40, '{}'::jsonb, '[]'::jsonb)$$, 'a draft needs at least one row');
+insert into tests.ids select 'first', (public.create_draft_dossier('10000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-00000000000a', '2026-11-01', '2026-11-30', repeat('a1', 32), 40,
+  '{"score_bp": 9500}'::jsonb, tests.items('SDA')) ->> 'dossier_id')::uuid;
+select tests.rows($$select * from public.dossier_items where dossier_id = (select id from tests.ids where label = 'first')$$,
+                  2, 'the manager creates a draft with its rows');
+select tests.ok((select fee_cents from public.dossier_items where tx = 'SDA0000001') = 700,
+                'the fee is stored with its transfer');
+select tests.ok((select status from public.dossiers where id = (select id from tests.ids where label = 'first')) = 'draft',
+                'a new dossier starts as a draft');
+select tests.ok((public.create_draft_dossier('10000000-0000-0000-0000-000000000001',
+                 '00000000-0000-0000-0000-00000000000a', '2026-11-01', '2026-11-30', repeat('a1', 32), 40,
+                 '{}'::jsonb, tests.items('SDA')) ->> 'replaced_draft')::boolean,
+                'saving the same statement again replaces the earlier draft');
+select tests.rows($$select * from public.dossiers where source_sha256 = repeat('a1', 32)$$, 1,
+                  'only one draft per statement remains');
+select tests.rows($$select * from public.dossiers where id = (select id from tests.ids where label = 'first')$$, 0,
+                  'the replaced draft and its rows were deleted (cascade fix)');
+insert into tests.ids select 'second', id from public.dossiers where source_sha256 = repeat('a1', 32);
+insert into public.approvals (dossier_id, club_id, user_id, role, challenge, cred_id,
+                              authenticator_data, client_data_json, signature)
+select id, '10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a', 'manager',
+       repeat('ef', 32), 'cred-m', 'ad', 'cd', 'sig' from tests.ids where label = 'second';
+select public.transition_dossier((select id from tests.ids where label = 'second'), 'submitted',
+                                 '00000000-0000-0000-0000-00000000000a');
+select tests.denied($$select public.create_draft_dossier('10000000-0000-0000-0000-000000000001',
+                    '00000000-0000-0000-0000-00000000000a', '2026-11-01', '2026-11-30', repeat('a1', 32),
+                    40, '{}'::jsonb, tests.items('SDB'))$$,
+                    'a statement already in a submitted dossier is refused');
+reset role; select tests.act_as('00000000-0000-0000-0000-00000000000a', 'authenticated'); set role authenticated;
+select tests.denied($$select public.create_draft_dossier('10000000-0000-0000-0000-000000000001',
+                    '00000000-0000-0000-0000-00000000000a', '2026-11-01', '2026-11-30', repeat('b2', 32),
+                    40, '{}'::jsonb, tests.items('SDC'))$$,
+                    'browsers cannot call create_draft_dossier directly');
+reset role; select tests.act_as(null, 'service_role'); set role service_role;
+
 \warn '--- audit log'
 select tests.rows($$select * from public.audit_log
                     where dossier_id = '20000000-0000-0000-0000-000000000001'$$, 4,

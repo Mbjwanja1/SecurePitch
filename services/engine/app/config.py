@@ -3,8 +3,10 @@
 import os
 from dataclasses import dataclass
 
-# Statements are capped at 5 MB (plan section 09); allow 1 MB for multipart overhead.
-DEFAULT_MAX_BODY_BYTES = 6 * 1024 * 1024
+# Statements are capped at 5 MB (plan section 09). Saving a draft sends the PDF base64-encoded
+# inside JSON (+33%), so allow 8 MB.
+MAX_STATEMENT_BYTES = 5 * 1024 * 1024
+DEFAULT_MAX_BODY_BYTES = 8 * 1024 * 1024
 
 
 @dataclass(frozen=True)
