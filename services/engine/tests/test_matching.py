@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import dataclasses
 from datetime import date
 
 import pytest
@@ -345,3 +346,35 @@ def test_endpoints_refuse_when_database_settings_are_missing(monkeypatch) -> Non
     monkeypatch.delenv("SUPABASE_URL", raising=False)
     client = TestClient(create_app())
     assert post_roster(client, MANAGER, roster_players()).status_code == 503
+
+
+def test_shared_middle_initial_is_not_a_name_match(parsed) -> None:
+    players, key = players_for(CLUB, roster_players())
+    lucy = next(
+        t for t, m in match_rows(parsed.rows, players, key).items() if m.player_code == "P06"
+    )
+    row = next(r for r in parsed.rows if r.tx == lucy)
+    row = dataclasses.replace(
+        row, counterparty=dataclasses.replace(row.counterparty, name="John A. Kamau")
+    )
+    players[5] = Player("P06", "Mercy A. Otieno", players[5].mask_key)
+    assert match_rows([row], players, key)[lucy].status is MatchStatus.NUMBER_ONLY
+
+
+def test_blank_fkf_ids_are_stored_as_null_and_trimmed(engine) -> None:
+    client, db = engine
+    players = roster_players()
+    players[0]["fkf_id"], players[1]["fkf_id"] = "  FKF-123 ", "   "
+    assert post_roster(client, MANAGER, players).status_code == 200
+    by_code = {r["player_code"]: r["fkf_id"] for r in db.roster_rows}
+    assert (by_code["P01"], by_code["P02"]) == ("FKF-123", None)
+
+
+@pytest.mark.parametrize("pepper", ["not-base64!", base64.b64encode(b"short").decode()])
+def test_bad_pepper_is_a_configuration_error_not_a_crash(monkeypatch, pepper) -> None:
+    monkeypatch.setenv("ENGINE_INTERNAL_KEY", KEY)
+    monkeypatch.setenv("ROSTER_PEPPER", pepper)
+    app = create_app()
+    app.state.supabase = FakeSupabase()
+    r = post_roster(TestClient(app), MANAGER, roster_players())
+    assert r.status_code == 503 and pepper not in r.text
