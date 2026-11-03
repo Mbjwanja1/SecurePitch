@@ -91,6 +91,7 @@ reset role; select tests.act_as(null, 'anon'); set role anon;
 select tests.denied('select * from public.clubs', 'anon cannot read clubs');
 select tests.denied('select * from public.dossiers', 'anon cannot read dossiers');
 select tests.denied('select * from public.roster_entries', 'anon cannot read the roster');
+select tests.denied('select * from public.audit_log', 'anon cannot read the audit log');
 select tests.ok(public.public_dossier('20000000-0000-0000-0000-000000000001') is null,
                 'public_dossier hides a draft');
 select tests.denied($$select public.transition_dossier('20000000-0000-0000-0000-000000000001',
@@ -140,6 +141,10 @@ select tests.denied($$insert into public.audit_log (action, hash) values ('forge
 
 \warn '--- engine (service role): submit'
 reset role; select tests.act_as(null, 'service_role'); set role service_role;
+select tests.rows('select * from public.dossiers', 3, 'the engine can read every dossier');
+select tests.rows('select token_hash from public.attestations', 1,
+                  'the engine can read attestation token hashes (browsers can''t)');
+select tests.rows('select * from public.audit_log', 0, 'the engine can read the audit log');
 select tests.denied($$update public.dossiers set status = 'submitted'
                     where id = '20000000-0000-0000-0000-000000000001'$$,
                     'even the engine cannot change status without the state machine');

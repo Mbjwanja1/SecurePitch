@@ -8,6 +8,11 @@ Owner: **Chris**. Migrations live in `migrations/` and run in filename order.
 | `…090100_audit_log.sql` | Append-only, hash-chained audit log and `verify_audit_chain()` |
 | `…090200_rls.sql` | Row-level security for every table; no table access for anonymous visitors |
 | `…090300_dossier_rules.sql` | Lifecycle rules (draft → submitted → approved → sealed → revoked), `transition_dossier()`, `seal_dossier()`, and `public_dossier()` for the verifier |
+| `…110000_api_role_grants.sql` | Explicit table privileges for the engine (`service_role`) and signed-in users (`authenticated`) |
+
+## Every new table needs explicit GRANTs
+
+Our project gives the API roles (`anon`, `authenticated`, `service_role`) **no table privileges by default**. A migration that adds a table must also grant what each role needs, at least `select, insert, update, delete` for `service_role` and `select` for `authenticated` where members should read it, or the engine and app get "permission denied". The test stand-in (`tests/supabase_stub.sql`) mirrors this, so a missing grant fails the tests.
 
 ## Rules the database enforces for every caller
 

@@ -30,9 +30,9 @@ $$;
 grant usage on schema auth to anon, authenticated, service_role;
 grant execute on all functions in schema auth to anon, authenticated, service_role;
 
--- Supabase grants table access to all three API roles by default; row-level security is
--- what actually protects the data. Reproduce that so the tests are realistic.
+-- The API roles can use the schema but get NO automatic table privileges. This matches our
+-- project (checked on the live database, 2026-11-03): it was created without Supabase's
+-- "grant new tables to the API roles" default. An earlier version of this stub granted
+-- everything by default, which hid missing GRANTs that broke the real database, so every
+-- privilege must now come from the migrations themselves.
 grant usage on schema public to anon, authenticated, service_role;
-alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
-alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
-alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
