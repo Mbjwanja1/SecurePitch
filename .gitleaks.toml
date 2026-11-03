@@ -4,22 +4,29 @@
 title = "SecurePitch"
 
 # Keep all of gitleaks' built-in rules (AWS keys, Supabase/JWT tokens, private keys, ...).
+# These apply everywhere, including fixtures/synthetic/.
 [extend]
 useDefault = true
 
-# Real player and coach numbers must never be committed. The roster is stored
-# only as HMAC keys in the database, so a phone number in git is always a leak.
-# Matches 07XXXXXXXX, 01XXXXXXXX, 2547XXXXXXXX and +2547XXXXXXXX.
+# Real player and coach numbers must never be committed. The roster is stored only as HMAC
+# digests, and the HMAC key lives in the engine's environment (later KMS), never in the
+# database, so a phone number in git is always a leak.
+# Matches 0712345678, 0712 345 678, 0712-345-678, 254712345678 and +254 712 345 678
+# (07xx and 01xx prefixes).
 [[rules]]
 id = "kenyan-mobile-number"
 description = "Kenyan mobile number (possible personal data)"
-regex = '''(?:^|[^0-9A-Za-z])((?:\+?254|0)[17][0-9]{8})(?:$|[^0-9A-Za-z])'''
+regex = '''(?:^|[^0-9A-Za-z])((?:\+?254|0)[ -]?[17][0-9]{2}[ -]?[0-9]{3}[ -]?[0-9]{3})(?:$|[^0-9A-Za-z])'''
 secretGroup = 1
 keywords = ["07", "01", "254"]
 
-# Synthetic test data is allowed to contain made-up numbers.
-[allowlist]
-description = "Synthetic fixtures"
-paths = [
-  '''^fixtures/synthetic/''',
-]
+  # Exempt from the phone rule only (every other rule still scans these paths):
+  # made-up numbers in synthetic fixtures, and base64 integrity hashes in lockfiles.
+  # "(^|/)" matches whether gitleaks reports repo-relative or absolute paths.
+  [[rules.allowlists]]
+  description = "Synthetic fixtures and package lockfiles"
+  paths = [
+    '''(^|/)fixtures/synthetic/''',
+    '''(^|/)pnpm-lock\.yaml$''',
+    '''(^|/)uv\.lock$''',
+  ]

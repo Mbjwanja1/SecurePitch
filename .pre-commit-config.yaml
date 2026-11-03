@@ -38,11 +38,23 @@ repos:
 
   - repo: local
     hooks:
+      # Case-insensitive: phones and email exports produce names like MPESA_Statement.PDF.
       - id: block-real-financial-files
         name: block statements and spreadsheets outside fixtures/synthetic
         language: fail
         entry: >-
           Statements and rosters must not be committed. Real files belong in
           fixtures/private/ (git-ignored); synthetic test files go in fixtures/synthetic/.
-        files: \.(pdf|csv|xlsx|xls)$
+        files: (?i)\.(pdf|csv|tsv|xlsx|xls|ods)$
         exclude: ^fixtures/synthetic/
+      # Receipt and roster photos are personal data, and gitleaks can't read images.
+      # Only app icons, page images and dossier template assets may be committed.
+      - id: block-photos
+        name: block photos outside app asset folders
+        language: fail
+        entry: >-
+          Photos may contain receipts, rosters or faces. Real ones belong in fixtures/private/.
+          If this is an app asset, put it in apps/web/public/, apps/web/app/ or
+          services/engine/app/dossier/templates/assets/.
+        files: (?i)\.(jpe?g|png|heic|heif|webp|gif|bmp|tiff?)$
+        exclude: ^(fixtures/synthetic|apps/web/public|apps/web/app|services/engine/app/dossier/templates/assets)/
