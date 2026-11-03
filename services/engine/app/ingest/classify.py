@@ -92,5 +92,8 @@ def classify(details: str) -> tuple[Kind, Counterparty]:
 
 
 def name_tokens(name: str | None) -> tuple[str, ...]:
-    """Case- and punctuation-insensitive name tokens: 'Jane  WANJIKU' -> ('jane', 'wanjiku')."""
-    return tuple(t for t in re.sub(r"[^\w\s]", " ", (name or "").casefold()).split() if t)
+    """Case- and punctuation-insensitive name tokens: 'Jane A. WANJIKU' -> ('jane', 'wanjiku').
+
+    Initials are dropped: two unrelated people with the middle initial "A." must not count as
+    a name match."""
+    return tuple(t for t in re.sub(r"[^\w\s]", " ", (name or "").casefold()).split() if len(t) > 1)

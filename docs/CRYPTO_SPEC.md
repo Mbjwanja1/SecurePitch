@@ -111,3 +111,21 @@ uv run --project services/engine python tools/gen_vectors.py
 The engine's test suite fails if the committed file is out of date.
 
 **The test key is public. Never use it for anything but tests.**
+
+## 8. Roster keys
+
+Implemented in `services/engine/app/roster/keys.py`. Raw phone numbers are never stored: the engine turns each one into two keyed hashes as soon as it arrives, then discards it.
+
+```text
+club_key  = HMAC-SHA256(ROSTER_PEPPER, "securepitch/roster/v1/club/" || club_id)
+phone_key = HMAC-SHA256(club_key, "phone:" || E.164)                 e.g. "+2547XXXXXXXX"
+mask_key  = HMAC-SHA256(club_key, "mask:" || prefix4 || "|" || suffix3)  e.g. "0712|678"
+```
+
+- **Why HMAC, not plain SHA-256:** Kenya's mobile numbers are a space of about 10⁹, so an unkeyed hash can be reversed by trying them all in minutes. Without `ROSTER_PEPPER` (32 random bytes held only by the engine), the keys reveal nothing.
+- **Why a key per club:** the same player in two clubs gets unrelated keys, so rosters can't be linked across clubs.
+- **Why two keys:** statements only ever show the masked form (`0712***678`), so `mask_key` is what matching uses. `phone_key` de-duplicates the roster. The `phone:` and `mask:` prefixes keep the two from ever colliding.
+- **Normalising:** `07XX XXX XXX`, `07XX-XXX-XXX`, `2547XXXXXXXX` and `+254 7XX XXX XXX` all become `+2547XXXXXXXX`. Only Kenyan mobiles (`7…` and `1…`) are accepted.
+- **Matching:** a statement row's masked number gives `mask_key`; a roster player with that key is **verified** if the statement's name shares a word with the player's name (ignoring case and punctuation), **number only** if not (often a parent's line), and **ambiguous** if several players share the key and the name doesn't pick one.
+
+Rotating `ROSTER_PEPPER` invalidates every stored key, so it's backed up with the other engine secrets, and changing it means re-importing rosters.

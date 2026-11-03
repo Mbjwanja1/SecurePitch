@@ -3,7 +3,8 @@ from fastapi import FastAPI
 from app import __version__
 from app.config import load_settings
 from app.middleware import RequestGate
-from app.routers import health, statements
+from app.routers import clubs, health, statements
+from app.supabase import Supabase
 
 
 def create_app() -> FastAPI:
@@ -19,6 +20,12 @@ def create_app() -> FastAPI:
     app.state.settings = settings
     app.include_router(health.router)
     app.include_router(statements.router)
+    app.include_router(clubs.router)
+    app.state.supabase = (
+        Supabase(settings.supabase_url, settings.supabase_key)
+        if settings.supabase_url and settings.supabase_key
+        else None
+    )
 
     public_paths = {"/health"} | ({"/docs", "/openapi.json"} if settings.is_dev else set())
     # Outermost layer: checks the key and body size before any request body is read.

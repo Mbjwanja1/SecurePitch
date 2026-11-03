@@ -12,6 +12,9 @@ class Settings:
     env: str
     internal_key: str
     max_body_bytes: int
+    supabase_url: str = ""
+    supabase_key: str = ""
+    roster_pepper: str = ""
 
     @property
     def is_dev(self) -> bool:
@@ -23,4 +26,7 @@ def load_settings() -> Settings:
         env=os.environ.get("ENGINE_ENV", "prod"),
         internal_key=os.environ.get("ENGINE_INTERNAL_KEY", ""),
         max_body_bytes=int(os.environ.get("ENGINE_MAX_BODY_BYTES", DEFAULT_MAX_BODY_BYTES)),
+        supabase_url=os.environ.get("SUPABASE_URL", ""),
+        supabase_key=os.environ.get("SUPABASE_SERVICE_ROLE_KEY", ""),
+        roster_pepper=os.environ.get("ROSTER_PEPPER", ""),
     )
