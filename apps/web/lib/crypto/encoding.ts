@@ -16,8 +16,13 @@ export function fromHex(hex: string): Bytes {
   return out;
 }
 
+/** Decode base64url with or without padding. Anything else is rejected, matching the engine. */
 export function fromB64url(text: string): Bytes {
-  const b64 = text.replace(/-/g, "+").replace(/_/g, "/");
+  const body = text.replace(/=+$/, "");
+  if (!/^[A-Za-z0-9_-]*$/.test(body) || body.length % 4 === 1 || text.length - body.length > 2) {
+    throw new Error("invalid base64url");
+  }
+  const b64 = body.replace(/-/g, "+").replace(/_/g, "/");
   const binary = atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4));
   return Uint8Array.from(binary, (c) => c.charCodeAt(0));
 }

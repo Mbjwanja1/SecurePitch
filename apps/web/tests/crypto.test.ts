@@ -120,3 +120,22 @@ describe("ES256 platform seal", () => {
     expect(await verifyPayloadSignature(key, sig.payload, "AAAA")).toBe(false);
   });
 });
+
+describe("base64url decoding (same rules as the engine)", () => {
+  const text = (bytes: Uint8Array) => new TextDecoder().decode(bytes);
+
+  it.each([
+    ["Zm9v", "foo"],
+    ["Zm8", "fo"],
+    ["Zm8=", "fo"],
+    ["Zg==", "f"],
+    ["Zm9v=", "foo"],
+    ["", ""],
+  ])("accepts %j", (input, expected) => {
+    expect(text(fromB64url(input))).toBe(expected);
+  });
+
+  it.each(["Zm9v!!", "Zm 9v", "Zm9v+", "Z", "Zg===", "Zm9v/"])("rejects %j", (bad) => {
+    expect(() => fromB64url(bad)).toThrow("invalid base64url");
+  });
+});
