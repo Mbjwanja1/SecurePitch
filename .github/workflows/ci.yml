@@ -43,6 +43,16 @@ jobs:
       - name: Scan full git history for secrets and phone numbers
         run: '"$RUNNER_TEMP/gitleaks" git . --config .gitleaks.toml --redact --verbose'
 
+  # Applies every migration to a throwaway Postgres and proves the row-level security and
+  # dossier-lifecycle rules by acting as each kind of user (supabase/tests/rls_test.sql).
+  database:
+    name: Database (migrations + RLS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply migrations and run RLS tests
+        run: bash supabase/tests/run.sh
+
   # The engine and web jobs switch themselves on once their projects exist.
   engine:
     name: Engine (Python)
