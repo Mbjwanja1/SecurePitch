@@ -8,14 +8,17 @@ Usage (from the repo root):
     uv run tools/check_infra.py
     uv run tools/check_infra.py --env-file services/engine/.env
 
+With SIGNER=local the AWS checks are skipped and the local signing key is checked instead.
 Never prints secrets. Exits non-zero if any check fails.
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import os
+import re
 import subprocess
 import sys
 from collections.abc import Callable
@@ -27,7 +30,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, utils
 from dotenv import load_dotenv
 
-results: list[tuple[str, bool, str]] = []
+results: list[tuple[str, str, str]] = []  # (status, name, detail); status is PASS, FAIL or SKIP
 
 
 def check(name: str) -> Callable[[Callable[[], str]], Callable[[], str]]:
@@ -35,12 +38,16 @@ def check(name: str) -> Callable[[Callable[[], str]], Callable[[], str]]:
 
     def wrap(fn: Callable[[], str]) -> Callable[[], str]:
         try:
-            results.append((name, True, fn()))
+            results.append(("PASS", name, fn()))
         except Exception as exc:  # noqa: BLE001 - every failure is reported, never raised
-            results.append((name, False, f"{type(exc).__name__}: {exc}"))
+            results.append(("FAIL", name, f"{type(exc).__name__}: {exc}"))
         return fn
 
     return wrap
+
+
+def skip(name: str, reason: str) -> None:
+    results.append(("SKIP", name, reason))
 
 
 def require(*names: str) -> None:
@@ -49,36 +56,34 @@ def require(*names: str) -> None:
         raise RuntimeError(f"missing in .env: {', '.join(missing)}")
 
 
-def run_checks() -> None:
-    region = os.environ.get("AWS_REGION", "af-south-1")
+def verify_round_trip(sign: Callable[[bytes], bytes], public_der: bytes) -> str:
+    """Sign a digest the way the dossier seal will, then verify it with the public key."""
+    digest = hashlib.sha256(b"securepitch infra check").digest()
+    sig = sign(digest)
+    pub = serialization.load_der_public_key(public_der)
+    if not isinstance(pub, ec.EllipticCurvePublicKey) or pub.curve.name != "secp256r1":
+        raise RuntimeError("public key is not ECDSA P-256")
+    pub.verify(sig, digest, ec.ECDSA(utils.Prehashed(hashes.SHA256())))
+    # DER signatures are ~70-72 bytes; the browser verifier converts them to raw 64-byte r||s.
+    return f"valid DER signature, {len(sig)} bytes"
 
-    @check("Docker engine running")
-    def _docker() -> str:
-        out = subprocess.run(
-            ["docker", "info", "--format", "{{.ServerVersion}}"],
-            capture_output=True,
-            text=True,
-            timeout=20,
-            check=True,
-        )
-        return f"server {out.stdout.strip()}"
 
+def kms_checks(region: str) -> None:
     @check("AWS credentials valid")
     def _identity() -> str:
         require("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
         arn = boto3.client("sts", region_name=region).get_caller_identity()["Arn"]
         if arn.endswith(":root"):
-            raise RuntimeError(
-                "these are root credentials; use the securepitch-engine IAM user"
-            )
+            raise RuntimeError("these are root credentials; use the securepitch-engine IAM user")
         return arn
 
     kms = boto3.client("kms", region_name=region)
+    key_id = os.environ.get("KMS_KEY_ID", "")
 
     @check("KMS key is ECC_NIST_P256, SIGN_VERIFY, enabled")
     def _key() -> str:
         require("KMS_KEY_ID")
-        meta = kms.describe_key(KeyId=os.environ["KMS_KEY_ID"])["KeyMetadata"]
+        meta = kms.describe_key(KeyId=key_id)["KeyMetadata"]
         problems = []
         if meta["KeySpec"] != "ECC_NIST_P256":
             problems.append(f"KeySpec is {meta['KeySpec']}")
@@ -92,20 +97,15 @@ def run_checks() -> None:
 
     @check("KMS sign -> local verify round trip")
     def _sign() -> str:
-        # Same path the dossier seal will use: hash locally, KMS signs the digest (MessageType=DIGEST).
-        digest = hashlib.sha256(b"securepitch infra check").digest()
-        sig = kms.sign(
-            KeyId=os.environ["KMS_KEY_ID"],
-            Message=digest,
-            MessageType="DIGEST",
-            SigningAlgorithm="ECDSA_SHA_256",
-        )["Signature"]
-        der_pub = kms.get_public_key(KeyId=os.environ["KMS_KEY_ID"])["PublicKey"]
-        pub = serialization.load_der_public_key(der_pub)
-        assert isinstance(pub, ec.EllipticCurvePublicKey)
-        pub.verify(sig, digest, ec.ECDSA(utils.Prehashed(hashes.SHA256())))
-        # KMS returns DER (~70-72 bytes); the browser verifier must convert to raw 64-byte r||s.
-        return f"valid DER signature, {len(sig)} bytes"
+        def sign(digest: bytes) -> bytes:
+            return kms.sign(
+                KeyId=key_id,
+                Message=digest,
+                MessageType="DIGEST",
+                SigningAlgorithm="ECDSA_SHA_256",
+            )["Signature"]
+
+        return verify_round_trip(sign, kms.get_public_key(KeyId=key_id)["PublicKey"])
 
     @check("IAM user is sign-only (cannot list keys)")
     def _least_privilege() -> str:
@@ -116,13 +116,64 @@ def run_checks() -> None:
                 return "kms:ListKeys denied, as intended"
             raise
         raise RuntimeError(
-            "kms:ListKeys was allowed; the IAM policy is broader than infra/aws/engine-kms-policy.json"
+            "kms:ListKeys was allowed; the IAM policy is broader than "
+            "infra/aws/engine-kms-policy.json"
         )
+
+
+def local_signer_checks() -> None:
+    for name in (
+        "AWS credentials valid",
+        "KMS key is ECC_NIST_P256, SIGN_VERIFY, enabled",
+        "IAM user is sign-only (cannot list keys)",
+    ):
+        skip(name, "SIGNER=local; switch to SIGNER=kms once AWS is ready")
+
+    @check("Local signing key sign -> verify round trip")
+    def _local() -> str:
+        require("LOCAL_SIGNING_KEY")
+        raw = os.environ["LOCAL_SIGNING_KEY"]
+        der = base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4))
+        key = serialization.load_der_private_key(der, password=None)
+        if not isinstance(key, ec.EllipticCurvePrivateKey):
+            raise RuntimeError("LOCAL_SIGNING_KEY is not an EC private key")
+
+        def sign(digest: bytes) -> bytes:
+            return key.sign(digest, ec.ECDSA(utils.Prehashed(hashes.SHA256())))
+
+        public_der = key.public_key().public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        return verify_round_trip(sign, public_der)
+
+
+def run_checks() -> None:
+    @check("Docker engine running")
+    def _docker() -> str:
+        out = subprocess.run(  # noqa: S603 - fixed argument list, no user input
+            ["docker", "info", "--format", "{{.ServerVersion}}"],  # noqa: S607 - docker from PATH
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=True,
+        )
+        return f"server {out.stdout.strip()}"
+
+    signer = os.environ.get("SIGNER", "kms").strip().lower()
+    if signer == "local":
+        local_signer_checks()
+    else:
+        kms_checks(os.environ.get("AWS_REGION", "af-south-1"))
 
     @check("Supabase API reachable with service key")
     def _supabase() -> str:
         require("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")
         url = os.environ["SUPABASE_URL"].rstrip("/")
+        if not re.fullmatch(r"https://[a-z0-9]+\.supabase\.co", url):
+            raise RuntimeError(
+                "SUPABASE_URL must be the bare project URL, https://<ref>.supabase.co "
+                "(no /rest/v1 or other path)"
+            )
         key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
         r = httpx.get(f"{url}/auth/v1/health", headers={"apikey": key}, timeout=15)
         r.raise_for_status()
@@ -146,13 +197,15 @@ def main() -> int:
     try:
         run_checks()
     except (BotoCoreError, ClientError) as exc:  # e.g. no region or credentials at all
-        results.append(("AWS client setup", False, str(exc)))
+        results.append(("FAIL", "AWS client setup", str(exc)))
 
-    width = max(len(name) for name, _, _ in results)
-    for name, ok, detail in results:
-        print(f"{'PASS' if ok else 'FAIL'}  {name.ljust(width)}  {detail}")
-    failed = sum(not ok for _, ok, _ in results)
-    print(f"\n{len(results) - failed}/{len(results)} checks passed")
+    width = max(len(name) for _, name, _ in results)
+    for status, name, detail in results:
+        print(f"{status}  {name.ljust(width)}  {detail}")
+    failed = sum(status == "FAIL" for status, _, _ in results)
+    skipped = sum(status == "SKIP" for status, _, _ in results)
+    ran = len(results) - skipped
+    print(f"\n{ran - failed}/{ran} checks passed, {skipped} skipped")
     return 1 if failed else 0
 
 

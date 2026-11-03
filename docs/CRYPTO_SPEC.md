@@ -1,0 +1,113 @@
+# SecurePitch cryptography specification
+
+**Version 1.** Owner: Chris. Implemented by `services/engine/app/crypto/` (Python) and `apps/web/lib/crypto/` (TypeScript). Both must pass [`spec/test-vectors.json`](../spec/test-vectors.json); if they disagree, the vectors win.
+
+This document is the contract between the engine that seals dossiers and the verifier that sponsors use. Any change to it needs a new `v` number and regenerated vectors.
+
+## 1. Encoding
+
+| Data | Encoding |
+|---|---|
+| Hashes, Merkle roots, digests | lowercase hex |
+| Signatures, public keys, salts, private keys | base64url **without** padding |
+| Money | integer cents: KES 250 → `25000` |
+| Timestamps | ISO 8601 with offset: `2026-10-17T07:15:00+03:00` |
+| Ratios and scores | integer basis points: 94% → `9400` |
+
+**No floating-point numbers** may appear in anything hashed or signed. Python and JavaScript format some floats differently, so a float could make the same dossier hash differently in the engine and the browser. Implementations reject floats rather than encode them. (This replaces the plan's `"score": 0.94` with `"score_bp": 9400`.)
+
+## 2. Canonical JSON
+
+Objects are serialised with **RFC 8785 (JSON Canonicalization Scheme)**: keys sorted, no whitespace, UTF-8, minimal string escaping. We use maintained libraries instead of hand-written serialisers:
+
+- Python: [`rfc8785`](https://pypi.org/project/rfc8785/)
+- TypeScript: [`canonicalize`](https://www.npmjs.com/package/canonicalize)
+
+Integers must be within ±(2⁵³ − 1) so JavaScript represents them exactly. Object keys are ASCII.
+
+## 3. Merkle tree
+
+```text
+leaf_hash(obj)  = SHA-256( 0x00 ‖ canonical(obj) )
+node_hash(L, R) = SHA-256( 0x01 ‖ L ‖ R )          (L, R are 32-byte hashes)
+```
+
+- The `0x00` / `0x01` prefixes (domain separation, as in RFC 6962) stop a leaf from being passed off as an internal node.
+- At each level, hashes are paired left to right. **An unpaired last node is promoted unchanged** to the next level. It is never duplicated: duplication lets two different leaf lists share a root (CVE-2012-2459).
+- Leaves are sorted by `(ts, tx)` before the tree is built, so the same set of rows always gives the same root.
+- An empty tree is an error. A dossier has at least one row.
+- With one leaf, the root is that leaf's hash.
+
+### Inclusion proof
+
+A proof is the list of sibling hashes from the leaf up to the root, each tagged with the side the sibling sits on:
+
+```json
+[{"side": "R", "hash": "<hex>"}, {"side": "L", "hash": "<hex>"}]
+```
+
+To verify: start with `h = leaf_hash`; for each step, `h = node_hash(step.hash, h)` if the side is `L`, else `node_hash(h, step.hash)`. The proof is valid if the final `h` equals the root. Levels where the node was promoted contribute no step.
+
+## 4. Leaf object (one disclosed club row)
+
+```json
+{
+  "v": 1,
+  "branch": "B",
+  "tx": "SJK3ABC12D",
+  "ts": "2026-10-17T07:15:00+03:00",
+  "amt": 25000,
+  "dir": "out",
+  "cp": {"type": "player", "ref": "hmac:<hex>"},
+  "cat": "transport",
+  "fixture": "MD4-2026-10-17",
+  "ev": {"receipt_sha256": null, "attest": [], "corroborated": true},
+  "salt": "<16 random bytes, base64url>"
+}
+```
+
+`branch` is `A` (merchant), `B` (squad) or `I` (club income). `cp.type` is `player`, `till`, `paybill` or `person`. The `salt` stops anyone from guessing a small leaf (one amount, one date) by brute force and checking it against a published hash.
+
+## 5. Signatures
+
+- Algorithm: **ECDSA on P-256 with SHA-256** (`ES256`). KMS key spec `ECC_NIST_P256`; WebCrypto `{name: "ECDSA", namedCurve: "P-256"}`.
+- **What is signed:** `d = SHA-256(canonical(payload))`. The signer receives the 32-byte digest `d`. With KMS this is `Sign(MessageType=DIGEST, SigningAlgorithm=ECDSA_SHA_256)`.
+- **Signature format on the wire:** DER, base64url. This is what KMS returns.
+- **Verifying in the browser:** WebCrypto's `verify()` hashes its input itself, so pass it the **canonical payload bytes, not `d`**. It also expects the raw 64-byte `r ‖ s` form, so convert from DER first. The vectors include both forms so this conversion is tested.
+- **Public keys** are published as JWK at `/.well-known/securepitch-keys.json`: `{"kid", "kty": "EC", "crv": "P-256", "x", "y", "alg": "ES256"}`. Every payload names its `kid`, so keys can be rotated.
+
+### Signer implementations
+
+| `SIGNER` | Key lives | Use |
+|---|---|---|
+| `kms` | AWS KMS, never exportable | Real dossiers |
+| `local` | `LOCAL_SIGNING_KEY` in `.env` (base64url PKCS#8 DER) | Development and tests, and the fallback while AWS isn't ready. Dossiers sealed with a local key use a `kid` starting `local-` and the verifier labels them as not production-signed. |
+
+Generate a local key with:
+
+```bash
+uv run --directory services/engine python -m app.crypto.signer --generate
+```
+
+## 6. Approval challenge (passkeys)
+
+Each approver's passkey signs `c = SHA-256(canonical(payload without "approvals" and "sealed_at"))` as the WebAuthn challenge. The platform seal (section 5) is computed after the approvals are added, so it covers them. *(Implemented on Day 5.)*
+
+## 7. Test vectors
+
+`spec/test-vectors.json` is generated by `tools/gen_vectors.py` from the Python implementation, using a fixed, publicly known test key. It contains:
+
+- `canonical`: input objects and their exact canonical strings and SHA-256
+- `leaves`: example leaf objects and their leaf hashes
+- `trees`: leaf lists of sizes 1, 2, 3, 4, 5, 7 and 18 with roots and inclusion proofs
+- `signature`: the test public key (SPKI and JWK), a payload, its digest, a deterministic (RFC 6979) signature in DER and raw form, and a tampered payload that must fail
+
+Regenerate after any intentional change:
+
+```bash
+uv run --project services/engine python tools/gen_vectors.py
+```
+
+The engine's test suite fails if the committed file is out of date.
+
+**The test key is public. Never use it for anything but tests.**

@@ -1,0 +1,726 @@
+{
+  "version": 1,
+  "warning": "Synthetic data. The signing key is derived from a public seed: never use it outside tests.",
+  "canonical": [
+    {
+      "name": "key ordering and nesting",
+      "input": {
+        "b": 2,
+        "a": 1,
+        "c": {
+          "z": true,
+          "y": null
+        }
+      },
+      "canonical": "{\"a\":1,\"b\":2,\"c\":{\"y\":null,\"z\":true}}",
+      "sha256": "8de4da99ba10a81ad0712ed5ca145e6017393749463cfdafc1a6b16836ad4d1d"
+    },
+    {
+      "name": "string escapes",
+      "input": {
+        "note": "Line 1\nTab\there \"quoted\" \\ backslash",
+        "ctrl": "\u0001"
+      },
+      "canonical": "{\"ctrl\":\"\\u0001\",\"note\":\"Line 1\\nTab\\there \\\"quoted\\\" \\\\ backslash\"}",
+      "sha256": "52b30bc54e2fa493cb52330ce02229b8daa159390a097a9d8e54e4e0cdc069c5"
+    },
+    {
+      "name": "non-ASCII text",
+      "input": {
+        "name": "Wanjikũ Nyambura",
+        "venue": "Camp Toyoyo – Jericho"
+      },
+      "canonical": "{\"name\":\"Wanjikũ Nyambura\",\"venue\":\"Camp Toyoyo – Jericho\"}",
+      "sha256": "2231ac4a197b36658722edced0ebd2bb13008daf8392af101e5019cedc9e5646"
+    },
+    {
+      "name": "integers",
+      "input": {
+        "amt": 25000,
+        "neg": -300,
+        "zero": 0,
+        "max_safe": 9007199254740991
+      },
+      "canonical": "{\"amt\":25000,\"max_safe\":9007199254740991,\"neg\":-300,\"zero\":0}",
+      "sha256": "8f910c90ba1c4fd95e9535cedc46187b88d15349536e3eb2ed8a415d81dab42b"
+    },
+    {
+      "name": "arrays and empties",
+      "input": {
+        "list": [
+          3,
+          1,
+          2
+        ],
+        "empty_list": [],
+        "empty_obj": {}
+      },
+      "canonical": "{\"empty_list\":[],\"empty_obj\":{},\"list\":[3,1,2]}",
+      "sha256": "8a11abad60967dd3bb0ad9cc5ff81806f55131ddb0c032bb301f2dbbf2dd659c"
+    }
+  ],
+  "leaves": [
+    {
+      "name": "squad transport allowance",
+      "leaf": {
+        "v": 1,
+        "branch": "B",
+        "tx": "SJK3ABC12D",
+        "ts": "2026-10-17T07:15:00+03:00",
+        "amt": 25000,
+        "dir": "out",
+        "cp": {
+          "type": "player",
+          "ref": "hmac:abababababababababababababababababababababababababababababababab"
+        },
+        "cat": "transport",
+        "fixture": "MD4-2026-10-17",
+        "ev": {
+          "receipt_sha256": null,
+          "attest": [],
+          "corroborated": true
+        },
+        "salt": "q3VbZ0xPa2N1dGVzdA"
+      },
+      "leaf_hash": "90a3bb9d28c199a3cd1bfbc3a6c2fb963cc9c15481eda96184e15aeab786cc22"
+    },
+    {
+      "name": "merchant kit purchase",
+      "leaf": {
+        "v": 1,
+        "branch": "A",
+        "tx": "SJL7KIT01Q",
+        "ts": "2026-10-20T15:42:10+03:00",
+        "amt": 2200000,
+        "dir": "out",
+        "cp": {
+          "type": "till",
+          "ref": "512345"
+        },
+        "cat": "kit",
+        "fixture": null,
+        "ev": {
+          "receipt_sha256": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+          "attest": [],
+          "corroborated": false
+        },
+        "salt": "c2FsdC1mb3Ita2l0"
+      },
+      "leaf_hash": "acf8b6c9b4f4b59868d197a89d82f757c065215a9feda1efa0ee8cc796376fec"
+    },
+    {
+      "name": "club income",
+      "leaf": {
+        "v": 1,
+        "branch": "I",
+        "tx": "SJM2INC99Z",
+        "ts": "2026-10-17T06:30:00+03:00",
+        "amt": 400000,
+        "dir": "in",
+        "cp": {
+          "type": "person",
+          "ref": "hmac:efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef"
+        },
+        "cat": "income",
+        "fixture": null,
+        "ev": {
+          "receipt_sha256": null,
+          "attest": [],
+          "corroborated": false
+        },
+        "salt": "aW5jb21lLXNhbHQ"
+      },
+      "leaf_hash": "315d3d02bf0d9a651378d9cd06f4bfb557bd3d93ea688189287a4a475b60ebd5"
+    }
+  ],
+  "trees": [
+    {
+      "size": 1,
+      "leaf_objects": [
+        {
+          "v": 1,
+          "i": 0
+        }
+      ],
+      "leaf_hashes": [
+        "ab731557ebc3b01c621e80c5b17002249466264b3a9ad771a2a744bb57702137"
+      ],
+      "root": "ab731557ebc3b01c621e80c5b17002249466264b3a9ad771a2a744bb57702137",
+      "proofs": [
+        {
+          "index": 0,
+          "steps": []
+        }
+      ]
+    },
+    {
+      "size": 2,
+      "leaf_objects": [
+        {
+          "v": 1,
+          "i": 0
+        },
+        {
+          "v": 1,
+          "i": 1
+        }
+      ],
+      "leaf_hashes": [
+        "ab731557ebc3b01c621e80c5b17002249466264b3a9ad771a2a744bb57702137",
+        "92403b97fa6289a2e9ac813423d3d591849622cab652380f330b7d6bc0181cd4"
+      ],
+      "root": "33e03ba92eec7ab5727d062b2d6d4e38febea0ad752f78f1ceb3b74791be7fd6",
+      "proofs": [
+        {
+          "index": 0,
+          "steps": [
+            {
+              "side": "R",
+              "hash": "92403b97fa6289a2e9ac813423d3d591849622cab652380f330b7d6bc0181cd4"
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "steps": [
+            {
+              "side": "L",
+              "hash": "ab731557ebc3b01c621e80c5b17002249466264b3a9ad771a2a744bb57702137"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "size": 3,
+      "leaf_objects": [
+        {
+          "v": 1,
+          "i": 0
+        },
+        {
+          "v": 1,
+          "i": 1
+        },
+        {
+          "v": 1,
+          "i": 2
+        }
+      ],
+      "leaf_hashes": [
+        "ab731557ebc3b01c621e80c5b17002249466264b3a9ad771a2a744bb57702137",
+        "92403b97fa6289a2e9ac813423d3d591849622cab652380f330b7d6bc0181cd4",
+        "8fc8408444a5dc435398bfb1213c0e8446c0112802725c46ddd1477860b7f64f"
+      ],
+      "root": "a2329855db71e35263cd6d97c8054ce3526693942915e099d51504f360bc4977",
+      "proofs": [
+        {
+          "index": 0,
+          "steps": [
+            {
+              "side": "R",
+              "hash": "92403b97fa6289a2e9ac813423d3d591849622cab652380f330b7d6bc0181cd4"
+            },
+            {
+              "side": "R",
+              "hash": "8fc8408444a5dc435398bfb1213c0e8446c0112802725c46ddd1477860b7f64f"
+            }
+          ]
+        },
+        {
+          "index": 1,
+          "steps": [
+            {
+              "side": "L",
+              "hash": "ab731557ebc3b01c621e80c5b17002249466264b3a9ad771a2a744bb57702137"
+            },
+            {
+              "side": "R",
+              "hash": "8fc8408444a5dc435398bfb1213c0e8446c0112802725c46ddd1477860b7f64f"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "steps": [
+            {
+              "side": "L",
+              "hash": "33e03ba92eec7ab5727d062b2d6d4e38febea0ad752f78f1ceb3b74791be7fd6"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "size": 4,
+      "leaf_objects": [
+        {
+          "v": 1,
+          "i": 0
+        },
+        {
+          "v": 1,
+          "i": 1
+        },
+        {
+          "v": 1,
+          "i": 2
+        },
+        {
+          "v": 1,
+          "i": 3
+        }
+      ],
+      "leaf_hashes": [
+        "ab731557ebc3b01c621e80c5b17002249466264b3a9ad771a2a744bb57702137",
+        "92403b97fa6289a2e9ac813423d3d591849622cab652380f330b7d6bc0181cd4",
+        "8fc8408444a5dc435398bfb1213c0e8446c0112802725c46ddd1477860b7f64f",
+        "f19d34e2c7a7956f0fea351728e6a0aa0f8030c9ed81ca2ad3829d15f98f2353"
+      ],
+      "root": "f8208567f25b8e9602ec49c941b5e56e95457d00cd617a7949772d1a6e5486f4",
+      "proofs": [
+        {
+          "index": 0,
+          "steps": [
+            {
+              "side": "R",
+              "hash": "92403b97fa6289a2e9ac813423d3d591849622cab652380f330b7d6bc0181cd4"
+            },
+            {
+              "side": "R",
+              "hash": "d408a695f89fba3387fdc9751ccc9081b384499b6bb0a337a0484256fa7af4be"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "steps": [
+            {
+              "side": "R",
+              "hash": "f19d34e2c7a7956f0fea351728e6a0aa0f8030c9ed81ca2ad3829d15f98f2353"
+            },
+            {
+              "side": "L",
+              "hash": "33e03ba92eec7ab5727d062b2d6d4e38febea0ad752f78f1ceb3b74791be7fd6"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "steps": [
+            {
+              "side": "L",
+              "hash": "8fc8408444a5dc435398bfb1213c0e8446c0112802725c46ddd1477860b7f64f"
+            },
+            {
+              "side": "L",
+              "hash": "33e03ba92eec7ab5727d062b2d6d4e38febea0ad752f78f1ceb3b74791be7fd6"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "size": 5,
+      "leaf_objects": [
+        {
+          "v": 1,
+          "i": 0
+        },
+        {
+          "v": 1,
+          "i": 1
+        },
+        {
+          "v": 1,
+          "i": 2
+        },
+        {
+          "v": 1,
+          "i": 3
+        },
+        {
+          "v": 1,
+          "i": 4
+        }
+      ],
+      "leaf_hashes": [
+        "ab731557ebc3b01c621e80c5b17002249466264b3a9ad771a2a744bb57702137",
+        "92403b97fa6289a2e9ac813423d3d591849622cab652380f330b7d6bc0181cd4",
+        "8fc8408444a5dc435398bfb1213c0e8446c0112802725c46ddd1477860b7f64f",
+        "f19d34e2c7a7956f0fea351728e6a0aa0f8030c9ed81ca2ad3829d15f98f2353",
+        "6b32fe0e4db7a7bebd80084ab705daf93c6aa6dc1692b2cc3923281d2038c539"
+      ],
+      "root": "a84cb27277db7139cc51ce9206a23afbe623c32fc278e61b5802e603e9635c68",
+      "proofs": [
+        {
+          "index": 0,
+          "steps": [
+            {
+              "side": "R",
+              "hash": "92403b97fa6289a2e9ac813423d3d591849622cab652380f330b7d6bc0181cd4"
+            },
+            {
+              "side": "R",
+              "hash": "d408a695f89fba3387fdc9751ccc9081b384499b6bb0a337a0484256fa7af4be"
+            },
+            {
+              "side": "R",
+              "hash": "6b32fe0e4db7a7bebd80084ab705daf93c6aa6dc1692b2cc3923281d2038c539"
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "steps": [
+            {
+              "side": "R",
+              "hash": "f19d34e2c7a7956f0fea351728e6a0aa0f8030c9ed81ca2ad3829d15f98f2353"
+            },
+            {
+              "side": "L",
+              "hash": "33e03ba92eec7ab5727d062b2d6d4e38febea0ad752f78f1ceb3b74791be7fd6"
+            },
+            {
+              "side": "R",
+              "hash": "6b32fe0e4db7a7bebd80084ab705daf93c6aa6dc1692b2cc3923281d2038c539"
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "steps": [
+            {
+              "side": "L",
+              "hash": "f8208567f25b8e9602ec49c941b5e56e95457d00cd617a7949772d1a6e5486f4"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "size": 7,
+      "leaf_objects": [
+        {
+          "v": 1,
+          "i": 0
+        },
+        {
+          "v": 1,
+          "i": 1
+        },
+        {
+          "v": 1,
+          "i": 2
+        },
+        {
+          "v": 1,
+          "i": 3
+        },
+        {
+          "v": 1,
+          "i": 4
+        },
+        {
+          "v": 1,
+          "i": 5
+        },
+        {
+          "v": 1,
+          "i": 6
+        }
+      ],
+      "leaf_hashes": [
+        "ab731557ebc3b01c621e80c5b17002249466264b3a9ad771a2a744bb57702137",
+        "92403b97fa6289a2e9ac813423d3d591849622cab652380f330b7d6bc0181cd4",
+        "8fc8408444a5dc435398bfb1213c0e8446c0112802725c46ddd1477860b7f64f",
+        "f19d34e2c7a7956f0fea351728e6a0aa0f8030c9ed81ca2ad3829d15f98f2353",
+        "6b32fe0e4db7a7bebd80084ab705daf93c6aa6dc1692b2cc3923281d2038c539",
+        "af162dac26641e7fd619de81148dcede33c4c115eb2b6694e3615a2eabe6572a",
+        "f7ac4ecf88f0597c39ffb3a4eece53462e74fc2894c9beb507d45283b60981f9"
+      ],
+      "root": "a3c8cd9a0d35ebcb0b85e3e1a446ca1ed53fbbe23e1af2ddbb8c5a70711ccad5",
+      "proofs": [
+        {
+          "index": 0,
+          "steps": [
+            {
+              "side": "R",
+              "hash": "92403b97fa6289a2e9ac813423d3d591849622cab652380f330b7d6bc0181cd4"
+            },
+            {
+              "side": "R",
+              "hash": "d408a695f89fba3387fdc9751ccc9081b384499b6bb0a337a0484256fa7af4be"
+            },
+            {
+              "side": "R",
+              "hash": "d41cdc7153eb333b6d6e31f0d9fd5a4f3e590e2248f8c085a6367b83c3485da0"
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "steps": [
+            {
+              "side": "L",
+              "hash": "8fc8408444a5dc435398bfb1213c0e8446c0112802725c46ddd1477860b7f64f"
+            },
+            {
+              "side": "L",
+              "hash": "33e03ba92eec7ab5727d062b2d6d4e38febea0ad752f78f1ceb3b74791be7fd6"
+            },
+            {
+              "side": "R",
+              "hash": "d41cdc7153eb333b6d6e31f0d9fd5a4f3e590e2248f8c085a6367b83c3485da0"
+            }
+          ]
+        },
+        {
+          "index": 6,
+          "steps": [
+            {
+              "side": "L",
+              "hash": "43464b94588ef2ab18913c7c4ecf0dfb77294d871631811b405e818738475f35"
+            },
+            {
+              "side": "L",
+              "hash": "f8208567f25b8e9602ec49c941b5e56e95457d00cd617a7949772d1a6e5486f4"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "size": 18,
+      "leaf_objects": [
+        {
+          "v": 1,
+          "i": 0
+        },
+        {
+          "v": 1,
+          "i": 1
+        },
+        {
+          "v": 1,
+          "i": 2
+        },
+        {
+          "v": 1,
+          "i": 3
+        },
+        {
+          "v": 1,
+          "i": 4
+        },
+        {
+          "v": 1,
+          "i": 5
+        },
+        {
+          "v": 1,
+          "i": 6
+        },
+        {
+          "v": 1,
+          "i": 7
+        },
+        {
+          "v": 1,
+          "i": 8
+        },
+        {
+          "v": 1,
+          "i": 9
+        },
+        {
+          "v": 1,
+          "i": 10
+        },
+        {
+          "v": 1,
+          "i": 11
+        },
+        {
+          "v": 1,
+          "i": 12
+        },
+        {
+          "v": 1,
+          "i": 13
+        },
+        {
+          "v": 1,
+          "i": 14
+        },
+        {
+          "v": 1,
+          "i": 15
+        },
+        {
+          "v": 1,
+          "i": 16
+        },
+        {
+          "v": 1,
+          "i": 17
+        }
+      ],
+      "leaf_hashes": [
+        "ab731557ebc3b01c621e80c5b17002249466264b3a9ad771a2a744bb57702137",
+        "92403b97fa6289a2e9ac813423d3d591849622cab652380f330b7d6bc0181cd4",
+        "8fc8408444a5dc435398bfb1213c0e8446c0112802725c46ddd1477860b7f64f",
+        "f19d34e2c7a7956f0fea351728e6a0aa0f8030c9ed81ca2ad3829d15f98f2353",
+        "6b32fe0e4db7a7bebd80084ab705daf93c6aa6dc1692b2cc3923281d2038c539",
+        "af162dac26641e7fd619de81148dcede33c4c115eb2b6694e3615a2eabe6572a",
+        "f7ac4ecf88f0597c39ffb3a4eece53462e74fc2894c9beb507d45283b60981f9",
+        "a81372c46148c649d03c59beb95f6f9154586e866d6b9aaef5c86126faa22197",
+        "9397eed615e6a8146b48330a504d4fbe2f7b157d5cf3f4f7d318fbbe46eaf973",
+        "35189efe59fc373695ee04f16844c23dc5f9853b37f280009e086ba42f3d92f7",
+        "9085d5718c0d3cc82bcdebeca345e67c75b140549974d09816fd0e77d73fd100",
+        "aa11f3a7d7dd4a465234e221f322d9036cdddaeb04f7ffa53351691b400146dc",
+        "17a90ffd6b81bf24751efa1cd40d5b9b91bc79c154359a5ad68ac09c1b835da6",
+        "9c6a2462eddfa4a1dcc0a2cc919dcf59ce0a304d990b858c4d1bc590032f04fc",
+        "c1cccac1dadb087f3540f10dab2dfbf7311a7b9f8f82cff62080f19cd36b95e3",
+        "ee7ebb03db23edde5c25d5ba1c7fd52a50bda90cf736e7e594c4b0a29c9422c5",
+        "e99cfbc9e0460beb59d155767648608dd2bf909d1db6075bf2c1c0d665f4cae8",
+        "02409c599585581458240c7fc9ba8d158716ff86bcebb71fd73f7fb53dd84ad3"
+      ],
+      "root": "a60381b0262dc8fea43a959bb15411a0e59491ebc45e8680882e910167ff2c9f",
+      "proofs": [
+        {
+          "index": 0,
+          "steps": [
+            {
+              "side": "R",
+              "hash": "92403b97fa6289a2e9ac813423d3d591849622cab652380f330b7d6bc0181cd4"
+            },
+            {
+              "side": "R",
+              "hash": "d408a695f89fba3387fdc9751ccc9081b384499b6bb0a337a0484256fa7af4be"
+            },
+            {
+              "side": "R",
+              "hash": "2d7bcab3947784cd5d7661b99458cf3caae3daf6d4061f9d2818bc7dc49e30a8"
+            },
+            {
+              "side": "R",
+              "hash": "1bd375a2b1c0d06a14eb0e6ac08aac8b2d8ab2407968c902b0a01e8df6452183"
+            },
+            {
+              "side": "R",
+              "hash": "3f7c38118f87bd581c61525622200ae3cfd0a42d5ff250f062dc9592bc29d70a"
+            }
+          ]
+        },
+        {
+          "index": 9,
+          "steps": [
+            {
+              "side": "L",
+              "hash": "9397eed615e6a8146b48330a504d4fbe2f7b157d5cf3f4f7d318fbbe46eaf973"
+            },
+            {
+              "side": "R",
+              "hash": "e3144ca9ab04071b9546267ff854439c5965c1da5c9a96cc27495a1d82af84f1"
+            },
+            {
+              "side": "R",
+              "hash": "dbbf16281a3304006b83fc05f7d7a477345880124aec5f32cbe82cadbe52b480"
+            },
+            {
+              "side": "L",
+              "hash": "ea7424405d98a6dd113bb77c3252b5e79236675f1274b9053fc136fdc979eadb"
+            },
+            {
+              "side": "R",
+              "hash": "3f7c38118f87bd581c61525622200ae3cfd0a42d5ff250f062dc9592bc29d70a"
+            }
+          ]
+        },
+        {
+          "index": 17,
+          "steps": [
+            {
+              "side": "L",
+              "hash": "e99cfbc9e0460beb59d155767648608dd2bf909d1db6075bf2c1c0d665f4cae8"
+            },
+            {
+              "side": "L",
+              "hash": "d1f322b0a9f38d85441f77fd4b59b6610989f5c286c09b6d41e20c5fcddf2137"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "signature": {
+    "kid": "test-vector-key-v1",
+    "public_key_spki": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEvk2tkf3ZV4l0iuYlt9o-EBxA21HciO1CpFL9k3i5rNyLW7RnVJj06CLoSAq7FcNTxj2-sXGpdfHGsba0v8dO5Q",
+    "public_jwk": {
+      "kid": "test-vector-key-v1",
+      "kty": "EC",
+      "crv": "P-256",
+      "alg": "ES256",
+      "x": "vk2tkf3ZV4l0iuYlt9o-EBxA21HciO1CpFL9k3i5rNw",
+      "y": "i1u0Z1SY9Ogi6EgKuxXDU8Y9vrFxqXXxxrG2tL_HTuU"
+    },
+    "payload": {
+      "v": 1,
+      "kid": "test-vector-key-v1",
+      "dossier_id": "00000000-0000-4000-8000-000000000001",
+      "club": {
+        "id": "00000000-0000-4000-8000-0000000000c1",
+        "name": "Synthetic Lionesses FC"
+      },
+      "period": {
+        "from": "2026-10-01",
+        "to": "2026-10-31"
+      },
+      "rows_total": 214,
+      "rows_disclosed": 27,
+      "totals_cents": {
+        "transport": 750000,
+        "kit": 2200000,
+        "income": 720000
+      },
+      "integrity": {
+        "score_bp": 9400,
+        "balance_chain": true,
+        "summary_match": true
+      },
+      "merkle_root": "95f67a5f8b5908d049fab397c4bc6bee895101df4077c6f307cb40a0363a2fc3"
+    },
+    "canonical": "{\"club\":{\"id\":\"00000000-0000-4000-8000-0000000000c1\",\"name\":\"Synthetic Lionesses FC\"},\"dossier_id\":\"00000000-0000-4000-8000-000000000001\",\"integrity\":{\"balance_chain\":true,\"score_bp\":9400,\"summary_match\":true},\"kid\":\"test-vector-key-v1\",\"merkle_root\":\"95f67a5f8b5908d049fab397c4bc6bee895101df4077c6f307cb40a0363a2fc3\",\"period\":{\"from\":\"2026-10-01\",\"to\":\"2026-10-31\"},\"rows_disclosed\":27,\"rows_total\":214,\"totals_cents\":{\"income\":720000,\"kit\":2200000,\"transport\":750000},\"v\":1}",
+    "digest": "07a4258604c6b22286764c28ad02ba557f798af3f07ea6edead420ef89f5410b",
+    "signature_der": "MEUCIQDAaOlu96buJLFcFrPgx_UuubE1bKXXL0X_qxXiotrnNAIgEWM2-20YvEYKu6AVpyTp3e994AcFRd3HT-k2UgzWnLA",
+    "signature_raw": "wGjpbvem7iSxXBaz4Mf1LrmxNWyl1y9F_6sV4qLa5zQRYzb7bRi8Rgq7oBWnJOnd733gBwVF3cdP6TZSDNacsA",
+    "tampered_payload": {
+      "v": 1,
+      "kid": "test-vector-key-v1",
+      "dossier_id": "00000000-0000-4000-8000-000000000001",
+      "club": {
+        "id": "00000000-0000-4000-8000-0000000000c1",
+        "name": "Synthetic Lionesses FC"
+      },
+      "period": {
+        "from": "2026-10-01",
+        "to": "2026-10-31"
+      },
+      "rows_total": 214,
+      "rows_disclosed": 27,
+      "totals_cents": {
+        "transport": 750000,
+        "kit": 2900000,
+        "income": 720000
+      },
+      "integrity": {
+        "score_bp": 9400,
+        "balance_chain": true,
+        "summary_match": true
+      },
+      "merkle_root": "95f67a5f8b5908d049fab397c4bc6bee895101df4077c6f307cb40a0363a2fc3"
+    },
+    "note": "verify(payload) must succeed; verify(tampered_payload) with the same signature must fail"
+  }
+}

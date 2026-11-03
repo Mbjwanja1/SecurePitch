@@ -1,0 +1,7 @@
+# Ruff settings for Python outside services/engine (tools/). The engine has the same settings
+# in its pyproject.toml. Keep the ruff version in sync with .pre-commit-config.yaml.
+line-length = 100
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "I", "B", "UP", "S", "BLE"]

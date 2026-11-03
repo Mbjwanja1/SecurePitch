@@ -54,8 +54,8 @@ What the policy allows: `kms:Sign` on that one key, only with `ECDSA_SHA_256` ov
 
 1. Sign up at <https://supabase.com> with the team's shared email, create an organisation `Coffee Powered Innovators`, and invite Catherine and Joy.
 2. New project `securepitch`, region **Central EU (Frankfurt)**, plan Free. Generate a strong database password and store it in a password manager, not in chat.
-3. Project Settings → API: copy the **Project URL** and **service_role** key into `services/engine/.env`. Catherine needs the URL and **anon** key for `apps/web/.env.local`; share them privately, never in the repo.
-4. Project Settings → Database → Connection string (URI) → `DATABASE_URL`.
+3. Project Settings → Data API: copy the **Project URL** (`https://<ref>.supabase.co`, with nothing after `.co`) into `SUPABASE_URL`. Project Settings → API Keys → **Secret keys** → create one named `engine` (`sb_secret_…`) → `SUPABASE_SERVICE_ROLE_KEY`. Catherine needs the URL and the **publishable** key (`sb_publishable_…`) for `apps/web/.env.local`; share them privately, never in the repo.
+4. **Connect** (top of the dashboard) → Connection string → **Session pooler** → `DATABASE_URL`, with your database password filled in. The "Direct connection" address only works over IPv6, which Docker Desktop and most local networks don't have; the transaction pooler breaks the prepared statements our Postgres driver uses.
 
 *Why Frankfurt:* Supabase has no African region. Frankfurt keeps data under GDPR, which helps the Kenya Data Protection Act cross-border transfer assessment. **Joy:** record this transfer and its safeguards in the DPIA.
 
