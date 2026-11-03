@@ -29,7 +29,9 @@ services:
   tunnel:
     image: cloudflare/cloudflared:2025.8.1
     profiles: [tunnel]
-    command: tunnel --no-autoupdate --url http://engine:8000
+    # HTTP/2 over TCP instead of QUIC over UDP: connects straight away on networks that block
+    # UDP. It still uses port 7844 (tested), so networks that block TCP 7844 need a hotspot.
+    command: tunnel --no-autoupdate --protocol http2 --url http://engine:8000
     depends_on:
       engine:
         condition: service_healthy

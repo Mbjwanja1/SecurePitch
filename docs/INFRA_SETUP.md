@@ -55,7 +55,7 @@ What the policy allows: `kms:Sign` on that one key, only with `ECDSA_SHA_256` ov
 1. Sign up at <https://supabase.com> with the team's shared email, create an organisation `Coffee Powered Innovators`, and invite Catherine and Joy.
 2. New project `securepitch`, region **Central EU (Frankfurt)**, plan Free. Generate a strong database password and store it in a password manager, not in chat.
 3. Project Settings → Data API: copy the **Project URL** (`https://<ref>.supabase.co`, with nothing after `.co`) into `SUPABASE_URL`. Project Settings → API Keys → **Secret keys** → create one named `engine` (`sb_secret_…`) → `SUPABASE_SERVICE_ROLE_KEY`. Catherine needs the URL and the **publishable** key (`sb_publishable_…`) for `apps/web/.env.local`; share them privately, never in the repo.
-4. **Connect** (top of the dashboard) → Connection string → **Session pooler** → `DATABASE_URL`, with your database password filled in. The "Direct connection" address only works over IPv6, which Docker Desktop and most local networks don't have; the transaction pooler breaks the prepared statements our Postgres driver uses.
+4. **Connect** (top of the dashboard) → Connection string → **Session pooler** → `DATABASE_URL`, with your database password filled in. **Only migrations use this** ([ADR 0002](adr/0002-engine-uses-supabase-over-https.md)); the engine talks to Supabase over HTTPS. The "Direct connection" address only works over IPv6, which Docker Desktop and most local networks don't have.
 
 *Why Frankfurt:* Supabase has no African region. Frankfurt keeps data under GDPR, which helps the Kenya Data Protection Act cross-border transfer assessment. **Joy:** record this transfer and its safeguards in the DPIA.
 
@@ -66,8 +66,9 @@ What the policy allows: `kms:Sign` on that one key, only with `ECDSA_SHA_256` ov
 Generate the two engine-only secrets and add them to `services/engine/.env`:
 
 ```bash
-py -c "import secrets; print(secrets.token_urlsafe(32))"                                         # ENGINE_INTERNAL_KEY
-py -c "import secrets, base64; print(base64.b64encode(secrets.token_bytes(32)).decode())"        # ROSTER_PEPPER
+# macOS, Linux, WSL (on Windows, use `py` instead of `python3`)
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"                                     # ENGINE_INTERNAL_KEY
+python3 -c "import secrets, base64; print(base64.b64encode(secrets.token_bytes(32)).decode())"    # ROSTER_PEPPER
 ```
 
 `ENGINE_INTERNAL_KEY` is how the engine knows a request came from our web app; once the tunnel is up the engine is on the public internet. `ROSTER_PEPPER` keys the HMAC of player phone numbers. **Back up `ROSTER_PEPPER` in the password manager:** if it's lost, every roster has to be re-imported.
@@ -85,6 +86,8 @@ The engine runs in Docker Desktop on the team laptop, reached through a Cloudfla
    ```
    then run `wsl --shutdown` and restart Docker Desktop. Without this, the Linux VM can move the container's in-memory files to a swap file on disk under memory pressure, which would quietly break the "never touches disk" claim.
 
+**Network:** the engine laptop needs outbound **port 443** (Supabase) and **TCP port 7844** (Cloudflare Tunnel, which we run in HTTP/2 mode). Campus, office and venue Wi-Fi often block 7844, and the tunnel then fails with Cloudflare error 530. On any such network, **put the engine laptop on a phone hotspot**; the other devices can stay on the venue Wi-Fi. See [ADR 0002](adr/0002-engine-uses-supabase-over-https.md).
+
 ## 8. Prove it
 
 ```bash
@@ -100,7 +103,7 @@ PASS  KMS key is ECC_NIST_P256, SIGN_VERIFY, enabled
 PASS  KMS sign -> local verify round trip         valid DER signature, 7x bytes
 PASS  IAM user is sign-only (cannot list keys)    kms:ListKeys denied, as intended
 PASS  Supabase service key has admin rights
-PASS  Database reachable and accepts login        aws-1-eu-central-1.pooler.supabase.com:5432, Postgres 17.x
+PASS  Database login (for migrations only)        aws-1-eu-central-1.pooler.supabase.com:5432, Postgres 17.x
 PASS  Engine secrets valid                        internal key length ok; roster pepper is 32 bytes
 ```
 
@@ -111,5 +114,5 @@ What each check proves:
 - **Sign round trip:** signs a digest exactly as the dossier seal will, then verifies it locally with the public key.
 - **Sign-only:** passes only if the engine's credentials are *refused* something they shouldn't have.
 - **Admin rights:** calls the Auth admin API, which only a secret key can use. (`/auth/v1/health` would also accept the public publishable key, so it can't catch a pasted wrong key.)
-- **Database:** logs in with `DATABASE_URL` and runs a query. A timeout usually means the network blocks outbound database ports (5432/6543), which campus and office Wi-Fi often do; try a phone hotspot.
+- **Database (migrations only):** logs in with `DATABASE_URL` and runs a query. It reports **WARN**, not FAIL, when it can't connect, because the engine itself uses HTTPS. A timeout means the network blocks database ports; to run migrations, use a phone hotspot or paste the SQL into the Supabase SQL editor.
 - **Secrets:** checks `ROSTER_PEPPER` is valid base64 of exactly 32 bytes, so a bad value fails here rather than at the first roster import.
