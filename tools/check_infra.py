@@ -211,7 +211,19 @@ def run_checks() -> None:
         require("DATABASE_URL")
         dsn = os.environ["DATABASE_URL"]
         parts = urlsplit(dsn)
-        where = f"{parts.hostname}:{parts.port or 5432}"
+        # An unencoded "#", "?" or "/" in the password cuts the URL short: the "host" becomes
+        # part of the username and reading the port raises. Catch that before connecting.
+        try:
+            port = parts.port or 5432
+        except ValueError:
+            port = None
+        if port is None or not parts.hostname or "." not in parts.hostname:
+            raise RuntimeError(
+                "DATABASE_URL couldn't be parsed. If the password contains special characters "
+                "(# ? / : @), URL-encode them (for example # -> %23, ? -> %3F) or reset the "
+                "database password to letters and digits"
+            )
+        where = f"{parts.hostname}:{port}"
         try:
             with psycopg.connect(dsn, connect_timeout=10) as conn:
                 version = conn.execute("show server_version").fetchone()[0]

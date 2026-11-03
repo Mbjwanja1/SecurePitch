@@ -86,7 +86,7 @@ The engine runs in Docker Desktop on the team laptop, reached through a Cloudfla
    ```
    then run `wsl --shutdown` and restart Docker Desktop. Without this, the Linux VM can move the container's in-memory files to a swap file on disk under memory pressure, which would quietly break the "never touches disk" claim.
 
-**Network:** the engine laptop needs outbound **port 443** (Supabase) and **port 7844** (Cloudflare Tunnel). Campus, office and venue Wi-Fi often block 7844, and the tunnel then fails with Cloudflare error 530. On any such network, **put the engine laptop on a phone hotspot**; the other devices can stay on the venue Wi-Fi. See [ADR 0002](adr/0002-engine-uses-supabase-over-https.md).
+**Network:** the engine laptop needs outbound **port 443** (Supabase) and **TCP port 7844** (Cloudflare Tunnel, which we run in HTTP/2 mode). Campus, office and venue Wi-Fi often block 7844, and the tunnel then fails with Cloudflare error 530. On any such network, **put the engine laptop on a phone hotspot**; the other devices can stay on the venue Wi-Fi. See [ADR 0002](adr/0002-engine-uses-supabase-over-https.md).
 
 ## 8. Prove it
 
