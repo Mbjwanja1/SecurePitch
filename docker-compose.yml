@@ -1,0 +1,44 @@
+# Local and demo runtime for the engine. See docs/adr/0001-engine-in-docker.md.
+#
+#   docker compose up -d --build                    engine only, on http://127.0.0.1:8000
+#   docker compose --profile tunnel up -d --build   engine plus a public HTTPS URL
+#   docker compose logs tunnel | grep trycloudflare  print the public URL
+#   docker compose up -d --build engine             rebuild the engine without changing the URL
+name: securepitch
+
+services:
+  engine:
+    build: ./services/engine
+    image: securepitch-engine:dev
+    env_file:
+      - path: services/engine/.env
+        required: false
+    ports:
+      - "127.0.0.1:8000:8000" # this laptop only; the internet comes in through the tunnel
+    # Statements must never touch persistent storage:
+    read_only: true # any write outside /tmp fails with "Read-only file system"
+    tmpfs:
+      - /tmp:size=64m,mode=1777,noexec,nosuid,nodev # RAM-backed scratch space
+    mem_limit: 1g
+    memswap_limit: 1g # equal to mem_limit: the container gets no swap
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  tunnel:
+    image: cloudflare/cloudflared:2025.8.1
+    profiles: [tunnel]
+    command: tunnel --no-autoupdate --url http://engine:8000
+    depends_on:
+      engine:
+        condition: service_healthy
+    read_only: true
+    # Precaution: quick tunnels run fine read-only today (tested), but give cloudflared RAM
+    # scratch space in case a future version writes temporary files.
+    tmpfs:
+      - /tmp:size=16m,mode=1777,noexec,nosuid,nodev
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
