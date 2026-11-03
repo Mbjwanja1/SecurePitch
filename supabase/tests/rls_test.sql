@@ -43,6 +43,10 @@ end $$;
 
 grant execute on all functions in schema tests to anon, authenticated, service_role;
 
+-- Write the first half of the audit trail in Kenyan time and the rest in UTC, so the chain
+-- must verify the same from either (PR 8 review, finding 1).
+set timezone = 'Africa/Nairobi';
+
 -- Seed data (as the database owner) ------------------------------------------------------------
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'manager@lionesses.test'),
@@ -66,7 +70,8 @@ values ('10000000-0000-0000-0000-000000000001', 'P07', 'Synthetic Player', repea
 
 insert into public.dossiers (id, club_id, period_from, period_to) values
   ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '2026-10-01', '2026-10-31'),
-  ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002', '2026-10-01', '2026-10-31');
+  ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002', '2026-10-01', '2026-10-31'),
+  ('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', '2026-11-01', '2026-11-30');
 
 insert into public.dossier_items (id, dossier_id, club_id, tx, ts, amt_cents, dir, branch, category,
                                   cp_type, cp_ref, salt) values
@@ -182,6 +187,7 @@ select tests.denied($$update public.attestations set response = 'disputed'$$,
                     'attestations close once approved');
 
 \warn '--- engine: seal'
+set timezone = 'UTC';
 select tests.denied($$select public.seal_dossier('20000000-0000-0000-0000-000000000001',
                     repeat('11', 32), '{"merkle_root": "different"}'::jsonb, 'local-dev', 'sig',
                     'dossiers/x.pdf', repeat('22', 32))$$,
@@ -194,6 +200,19 @@ select tests.denied($$update public.dossiers set payload = '{}'::jsonb
                     'a sealed payload can''t be edited, even by the engine');
 select tests.denied($$delete from public.dossiers where id = '20000000-0000-0000-0000-000000000001'$$,
                     'a sealed dossier can''t be deleted');
+select tests.denied($$update public.dossier_items set dossier_id = '20000000-0000-0000-0000-000000000003'
+                    where tx = 'SJK3ABC12D'$$,
+                    'a sealed row can''t be moved into a draft dossier');
+select tests.denied($$update public.attestations set item_id = '30000000-0000-0000-0000-000000000002'$$,
+                    'an attestation can''t be moved to another row');
+select tests.denied($$insert into public.dossier_items (dossier_id, club_id, tx, ts, amt_cents, dir,
+                    branch, category, cp_type, cp_ref, salt) values
+                    ('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000002',
+                     'SCLUBMIX01', now(), 100, 'out', 'B', 'meals', 'person', 'x', 'c2FsdC1mb3Ita2l0')$$,
+                    'a row''s club must match its dossier''s club');
+select tests.ok((select count(*) from public.dossier_items
+                 where dossier_id = '20000000-0000-0000-0000-000000000003') = 0,
+                'nothing was moved or added to the draft');
 
 \warn '--- public verifier'
 reset role; select tests.act_as(null, 'anon'); set role anon;
@@ -223,7 +242,11 @@ select tests.rows($$select * from public.audit_log
 select tests.denied('update public.audit_log set action = ''edited''',
                     'audit entries can''t be edited, even by the engine');
 select tests.denied('delete from public.audit_log', 'audit entries can''t be deleted');
-select tests.ok(public.verify_audit_chain() is null, 'the audit hash chain is intact');
+select tests.ok(public.verify_audit_chain() is null, 'the audit hash chain is intact (UTC session)');
+set timezone = 'Africa/Nairobi';
+select tests.ok(public.verify_audit_chain() is null,
+                'the chain verifies the same from a Kenyan-time session');
+set timezone = 'UTC';
 reset role;
 -- Simulate tampering by a database superuser who switches the protection off.
 alter table public.audit_log disable trigger audit_log_no_update_delete;

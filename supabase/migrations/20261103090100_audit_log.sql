@@ -17,9 +17,12 @@ create table public.audit_log (
 );
 create index audit_log_club_idx on public.audit_log (club_id, id);
 
+-- TimeZone is pinned to UTC: casting a timestamptz to text follows the session's timezone, so
+-- without this the same row would hash differently from a UTC+3 laptop and the dashboard.
 create function public.audit_log_chain() returns trigger
 language plpgsql
 set search_path = ''
+set "TimeZone" = 'UTC'
 as $$
 begin
   -- Serialise inserts so two concurrent writers can't both chain onto the same row.
@@ -57,6 +60,7 @@ create function public.verify_audit_chain() returns bigint
 language plpgsql
 stable
 set search_path = ''
+set "TimeZone" = 'UTC' -- must match audit_log_chain()
 as $$
 declare
   r record;

@@ -90,15 +90,16 @@ create table public.dossiers (
   check (status not in ('sealed', 'revoked')
          or (merkle_root is not null and payload is not null and signature is not null
              and kid is not null and sealed_at is not null)),
-  check (status <> 'revoked' or (revoked_at is not null and length(revoke_reason) > 0))
+  check (status <> 'revoked' or (revoked_at is not null and length(revoke_reason) > 0)),
+  unique (id, club_id) -- lets child rows prove their copied club_id matches
 );
 create index dossiers_club_idx on public.dossiers (club_id, status);
 
 -- One disclosed club row = one Merkle leaf. club_id is copied from the dossier so row-level
--- security can check it without a join.
+-- security can check it without a join; the composite foreign key guarantees the copy matches.
 create table public.dossier_items (
   id uuid primary key default gen_random_uuid(),
-  dossier_id uuid not null references public.dossiers (id) on delete cascade,
+  dossier_id uuid not null,
   club_id uuid not null references public.clubs (id) on delete cascade,
   tx text not null check (tx ~ '^[A-Z0-9]{10}$'),
   ts timestamptz not null,
@@ -112,34 +113,38 @@ create table public.dossier_items (
   salt text not null check (salt ~ '^[A-Za-z0-9_-]{16,}$'),
   leaf_hash text check (leaf_hash ~ '^[0-9a-f]{64}$'),
   created_at timestamptz not null default now(),
-  unique (dossier_id, tx)
+  unique (dossier_id, tx),
+  unique (id, club_id),
+  foreign key (dossier_id, club_id) references public.dossiers (id, club_id) on delete cascade
 );
 create index dossier_items_dossier_idx on public.dossier_items (dossier_id);
 
 create table public.planned_spends (
   id uuid primary key default gen_random_uuid(),
-  dossier_id uuid not null references public.dossiers (id) on delete cascade,
+  dossier_id uuid not null,
   club_id uuid not null references public.clubs (id) on delete cascade,
   supplier text not null,
   till text not null check (till ~ '^[0-9]{5,7}$'),
   amt_cents bigint not null check (amt_cents > 0),
-  purpose text not null
+  purpose text not null,
+  foreign key (dossier_id, club_id) references public.dossiers (id, club_id) on delete cascade
 );
 
 create table public.receipts (
   id uuid primary key default gen_random_uuid(),
-  item_id uuid not null unique references public.dossier_items (id) on delete cascade,
+  item_id uuid not null unique,
   club_id uuid not null references public.clubs (id) on delete cascade,
   image_sha256 text not null check (image_sha256 ~ '^[0-9a-f]{64}$'),
   thumb_path text not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  foreign key (item_id, club_id) references public.dossier_items (id, club_id) on delete cascade
 );
 
 -- Attestation links are bearer tokens: only their SHA-256 is stored, they expire and are
 -- single-use.
 create table public.attestations (
   id uuid primary key default gen_random_uuid(),
-  item_id uuid not null references public.dossier_items (id) on delete cascade,
+  item_id uuid not null,
   club_id uuid not null references public.clubs (id) on delete cascade,
   kind public.attestation_kind not null,
   method public.attestation_method not null,
@@ -151,14 +156,15 @@ create table public.attestations (
   recorded_by uuid references auth.users (id),
   created_at timestamptz not null default now(),
   check (method = 'callback' or (token_hash is not null and expires_at is not null)),
-  check ((response is null) = (used_at is null))
+  check ((response is null) = (used_at is null)),
+  foreign key (item_id, club_id) references public.dossier_items (id, club_id) on delete cascade
 );
 create index attestations_item_idx on public.attestations (item_id);
 
 -- Passkey signatures over the dossier payload digest (docs/CRYPTO_SPEC.md section 6).
 create table public.approvals (
   id uuid primary key default gen_random_uuid(),
-  dossier_id uuid not null references public.dossiers (id) on delete cascade,
+  dossier_id uuid not null,
   club_id uuid not null references public.clubs (id) on delete cascade,
   user_id uuid not null references auth.users (id),
   role public.member_role not null check (role in ('manager', 'treasurer')),
@@ -168,7 +174,8 @@ create table public.approvals (
   client_data_json text not null,
   signature text not null,
   created_at timestamptz not null default now(),
-  unique (dossier_id, role)
+  unique (dossier_id, role),
+  foreign key (dossier_id, club_id) references public.dossiers (id, club_id) on delete cascade
 );
 
 create table public.webauthn_credentials (

@@ -16,26 +16,59 @@ language sql stable security definer set search_path = '' as $$
   select status from public.dossiers where id = p_dossier
 $$;
 
--- SECURITY DEFINER: reads the dossier's status even where the caller can't execute
--- dossier_status_of() or see the parent row.
+-- The dossier a row belongs to, via its own column (dossier_id) or its ledger row (item_id).
+create function public.parent_dossier(p_table text, p_row jsonb) returns uuid
+language sql stable security definer set search_path = '' as $$
+  select case
+    when p_table in ('receipts', 'attestations') then
+      (select i.dossier_id from public.dossier_items i where i.id = (p_row ->> 'item_id')::uuid)
+    else (p_row ->> 'dossier_id')::uuid
+  end
+$$;
+
+-- Rows never move to another dossier or ledger row: otherwise an UPDATE could lift a row out
+-- of a sealed dossier into a draft, and only the destination would be checked.
+create function public.guard_no_reparenting() returns trigger
+language plpgsql set search_path = '' as $$
+declare
+  v_key text := case when tg_table_name in ('receipts', 'attestations') then 'item_id'
+                     else 'dossier_id' end;
+begin
+  if (to_jsonb(new) ->> v_key) is distinct from (to_jsonb(old) ->> v_key)
+     or (to_jsonb(new) ->> 'club_id') is distinct from (to_jsonb(old) ->> 'club_id') then
+    raise exception '% rows can''t be moved to another dossier or club', tg_table_name
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+-- SECURITY DEFINER: reads the dossier's status even where the caller can't see the parent row.
+-- For UPDATE and DELETE the existing row's parent is checked (reparenting is refused above);
+-- for INSERT, the new row's. A missing parent counts as "not a draft".
 create function public.guard_draft_only() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
-  v_dossier uuid;
+  v_status public.dossier_status;
 begin
-  if tg_table_name = 'receipts' then
-    select i.dossier_id into v_dossier from public.dossier_items i
-    where i.id = coalesce(new.item_id, old.item_id);
-  else
-    v_dossier := coalesce(new.dossier_id, old.dossier_id);
-  end if;
-  if public.dossier_status_of(v_dossier) is distinct from 'draft' then
+  v_status := public.dossier_status_of(public.parent_dossier(
+    tg_table_name, to_jsonb(case when tg_op = 'INSERT' then new else old end)));
+  if v_status is distinct from 'draft' then
     raise exception '% can only change while the dossier is a draft', tg_table_name
       using errcode = 'check_violation';
   end if;
-  return coalesce(new, old);
+  return case when tg_op = 'DELETE' then old else new end;
 end;
 $$;
+
+create trigger dossier_items_no_reparenting before update on public.dossier_items
+  for each row execute function public.guard_no_reparenting();
+create trigger planned_spends_no_reparenting before update on public.planned_spends
+  for each row execute function public.guard_no_reparenting();
+create trigger receipts_no_reparenting before update on public.receipts
+  for each row execute function public.guard_no_reparenting();
+create trigger attestations_no_reparenting before update on public.attestations
+  for each row execute function public.guard_no_reparenting();
 
 create trigger dossier_items_draft_only before insert or update or delete on public.dossier_items
   for each row execute function public.guard_draft_only();
@@ -44,21 +77,19 @@ create trigger planned_spends_draft_only before insert or update or delete on pu
 create trigger receipts_draft_only before insert or update or delete on public.receipts
   for each row execute function public.guard_draft_only();
 
--- SECURITY DEFINER: reads the dossier's status even where the caller can't execute
--- dossier_status_of() or see the parent row.
+-- Attestations stay open until approval (the captain confirms after submission).
 create function public.guard_attestation() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
   v_status public.dossier_status;
 begin
-  select d.status into v_status
-  from public.dossier_items i join public.dossiers d on d.id = i.dossier_id
-  where i.id = coalesce(new.item_id, old.item_id);
-  if v_status not in ('draft', 'submitted') then
+  v_status := public.dossier_status_of(public.parent_dossier(
+    tg_table_name, to_jsonb(case when tg_op = 'INSERT' then new else old end)));
+  if v_status is null or v_status not in ('draft', 'submitted') then
     raise exception 'attestations are closed once the dossier is approved'
       using errcode = 'check_violation';
   end if;
-  return coalesce(new, old);
+  return case when tg_op = 'DELETE' then old else new end;
 end;
 $$;
 
