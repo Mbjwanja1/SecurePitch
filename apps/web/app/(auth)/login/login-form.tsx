@@ -1,29 +1,36 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { safeNext } from "@/lib/safe-redirect";
 import { createClient } from "@/lib/supabase/client";
 
-/** Only follow same-site paths, so ?next= can't send someone to another website. */
-function safeNext(next: string | null): string {
-  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
-}
+// Supabase sends at most one sign-in email per address per minute.
+const RESEND_COOLDOWN_SECONDS = 60;
 
 export function LoginForm() {
   const router = useRouter();
-  const next = safeNext(useSearchParams().get("next"));
+  const rawNext = useSearchParams().get("next");
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   async function sendCode(e?: FormEvent) {
     e?.preventDefault();
+    if (cooldown > 0) return;
     setBusy(true);
     setError(null);
     const { error } = await createClient().auth.signInWithOtp({
@@ -33,13 +40,17 @@ export function LoginForm() {
     });
     setBusy(false);
     if (error) {
-      setError(
-        error.message.toLowerCase().includes("signups not allowed")
-          ? "There's no SecurePitch account for this email. Ask your club admin to invite you."
-          : `Couldn't send the code: ${error.message}`,
-      );
+      if (error.code === "over_email_send_rate_limit" || error.status === 429) {
+        setCooldown(RESEND_COOLDOWN_SECONDS);
+        setError("A code was sent very recently. Wait a minute, then try again.");
+      } else if (error.message.toLowerCase().includes("signups not allowed")) {
+        setError("There's no SecurePitch account for this email. Ask your club admin to invite you.");
+      } else {
+        setError(`Couldn't send the code: ${error.message}`);
+      }
       return;
     }
+    setCooldown(RESEND_COOLDOWN_SECONDS);
     setStep("code");
   }
 
@@ -53,9 +64,11 @@ export function LoginForm() {
       setError("That code is wrong or has expired. Check the latest email or send a new code.");
       return;
     }
-    router.replace(next);
+    router.replace(safeNext(rawNext, window.location.origin));
     router.refresh();
   }
+
+  const waitLabel = cooldown > 0 ? ` (${cooldown}s)` : "";
 
   if (step === "email") {
     return (
@@ -78,8 +91,8 @@ export function LoginForm() {
             {error}
           </p>
         )}
-        <Button type="submit" disabled={busy || !email}>
-          {busy ? "Sending…" : "Email me a sign-in code"}
+        <Button type="submit" disabled={busy || !email || cooldown > 0}>
+          {busy ? "Sending…" : `Email me a sign-in code${waitLabel}`}
         </Button>
       </form>
     );
@@ -126,11 +139,11 @@ export function LoginForm() {
         </button>
         <button
           type="button"
-          className="text-muted-foreground underline-offset-4 hover:underline"
-          disabled={busy}
+          className="text-muted-foreground underline-offset-4 hover:underline disabled:no-underline disabled:opacity-50"
+          disabled={busy || cooldown > 0}
           onClick={() => sendCode()}
         >
-          Send a new code
+          {`Send a new code${waitLabel}`}
         </button>
       </div>
     </form>

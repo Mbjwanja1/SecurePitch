@@ -7,6 +7,17 @@ import { supabaseKey, supabaseUrl } from "@/lib/env";
 // attestation links at /a) stays reachable without an account.
 const PROTECTED_PREFIXES = ["/dashboard", "/club", "/statements", "/dossiers", "/settings"];
 
+/**
+ * Redirect while keeping any cookies already set on `from`. When getUser() refreshes an
+ * expired session, Supabase writes the new tokens onto the pass-through response; a fresh
+ * NextResponse.redirect() would drop them and sign the user out.
+ */
+export function redirectKeepingCookies(from: NextResponse, url: URL): NextResponse {
+  const redirect = NextResponse.redirect(url);
+  for (const cookie of from.cookies.getAll()) redirect.cookies.set(cookie);
+  return redirect;
+}
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -32,21 +43,19 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+  const go = (pathname: string, search = "") => {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname;
+    url.search = search;
+    return redirectKeepingCookies(response, url);
+  };
+
+  // Send "/" straight to the right place instead of bouncing through /login.
+  if (path === "/") return go(user ? "/dashboard" : "/login");
+
   const needsUser = PROTECTED_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
-
-  if (needsUser && !user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.search = `?next=${encodeURIComponent(path)}`;
-    return NextResponse.redirect(url);
-  }
-
-  if (path === "/login" && user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
+  if (needsUser && !user) return go("/login", `?next=${encodeURIComponent(path)}`);
+  if (path === "/login" && user) return go("/dashboard");
 
   return response;
 }
