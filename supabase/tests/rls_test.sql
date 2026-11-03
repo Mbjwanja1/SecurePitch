@@ -1,0 +1,258 @@
+-- Row-level security and dossier-lifecycle tests. Run by supabase/tests/run.sh against a
+-- throwaway Postgres with supabase_stub.sql and all migrations applied. Any failed check
+-- raises an exception and stops the run (ON_ERROR_STOP).
+\set ON_ERROR_STOP 1
+\set QUIET 1
+
+-- Test helpers ---------------------------------------------------------------------------------
+create schema tests;
+grant usage on schema tests to anon, authenticated, service_role;
+
+create function tests.act_as(p_user uuid, p_role text) returns void language sql as $$
+  select set_config('request.jwt.claims',
+                    json_build_object('sub', p_user, 'role', p_role)::text, false)
+$$;
+
+create function tests.ok(p_cond boolean, p_label text) returns void language plpgsql as $$
+begin
+  if p_cond is not true then raise exception 'FAIL: %', p_label; end if;
+  raise notice 'ok   %', p_label;
+end $$;
+
+create function tests.rows(p_sql text, p_expected int, p_label text) returns void
+language plpgsql as $$
+declare n int;
+begin
+  execute format('with q as (%s) select count(*) from q', p_sql) into n;
+  if n <> p_expected then
+    raise exception 'FAIL: % (expected % rows, got %)', p_label, p_expected, n;
+  end if;
+  raise notice 'ok   %', p_label;
+end $$;
+
+create function tests.denied(p_sql text, p_label text) returns void language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    raise notice 'ok   % (refused: %)', p_label, sqlerrm;
+    return;
+  end;
+  raise exception 'FAIL: % (expected to be refused, but it ran)', p_label;
+end $$;
+
+grant execute on all functions in schema tests to anon, authenticated, service_role;
+
+-- Write the first half of the audit trail in Kenyan time and the rest in UTC, so the chain
+-- must verify the same from either (PR 8 review, finding 1).
+set timezone = 'Africa/Nairobi';
+
+-- Seed data (as the database owner) ------------------------------------------------------------
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-00000000000a', 'manager@lionesses.test'),
+  ('00000000-0000-0000-0000-00000000000b', 'treasurer@lionesses.test'),
+  ('00000000-0000-0000-0000-00000000000c', 'captain@lionesses.test'),
+  ('00000000-0000-0000-0000-00000000000d', 'manager@otherclub.test');
+
+insert into public.clubs (id, name) values
+  ('10000000-0000-0000-0000-000000000001', 'Synthetic Lionesses FC'),
+  ('10000000-0000-0000-0000-000000000002', 'Other Club FC');
+
+insert into public.club_members (club_id, user_id, role, display_name) values
+  ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a', 'manager', 'Coach'),
+  ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000b', 'treasurer', 'Treasurer'),
+  ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000c', 'captain', 'Captain'),
+  ('10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-00000000000d', 'manager', 'Other coach');
+
+insert into public.roster_entries (club_id, player_code, full_name, phone_key, consent_by, consent_at)
+values ('10000000-0000-0000-0000-000000000001', 'P07', 'Synthetic Player', repeat('ab', 32),
+        'player', now());
+
+insert into public.dossiers (id, club_id, period_from, period_to) values
+  ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '2026-10-01', '2026-10-31'),
+  ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002', '2026-10-01', '2026-10-31'),
+  ('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', '2026-11-01', '2026-11-30');
+
+insert into public.dossier_items (id, dossier_id, club_id, tx, ts, amt_cents, dir, branch, category,
+                                  cp_type, cp_ref, salt) values
+  ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001',
+   '10000000-0000-0000-0000-000000000001', 'SJK3ABC12D', '2026-10-17 07:15+03', 25000, 'out',
+   'B', 'transport', 'player', 'hmac:' || repeat('ab', 32), 'q3VbZ0xPa2N1dGVzdA'),
+  ('30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001',
+   '10000000-0000-0000-0000-000000000001', 'SJL7KIT01Q', '2026-10-20 15:42+03', 2200000, 'out',
+   'A', 'kit', 'till', '512345', 'c2FsdC1mb3Ita2l0');
+
+insert into public.attestations (item_id, club_id, kind, method, token_hash, expires_at) values
+  ('30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'captain',
+   'link', repeat('cd', 32), now() + interval '72 hours');
+
+\warn '--- anonymous visitor'
+reset role; select tests.act_as(null, 'anon'); set role anon;
+select tests.denied('select * from public.clubs', 'anon cannot read clubs');
+select tests.denied('select * from public.dossiers', 'anon cannot read dossiers');
+select tests.denied('select * from public.roster_entries', 'anon cannot read the roster');
+select tests.ok(public.public_dossier('20000000-0000-0000-0000-000000000001') is null,
+                'public_dossier hides a draft');
+select tests.denied($$select public.transition_dossier('20000000-0000-0000-0000-000000000001',
+                    'submitted', null)$$, 'anon cannot change dossier status');
+
+\warn '--- manager of another club'
+reset role; select tests.act_as('00000000-0000-0000-0000-00000000000d', 'authenticated');
+set role authenticated;
+select tests.rows('select * from public.dossiers', 1, 'sees only their own club''s dossier');
+select tests.rows($$select * from public.dossier_items$$, 0, 'sees no rows from another club');
+select tests.rows('select * from public.roster_entries', 0, 'sees no other club''s roster');
+select tests.rows($$update public.dossier_items set category = 'other' returning 1$$, 0,
+                  'cannot re-tag another club''s rows');
+
+\warn '--- captain'
+reset role; select tests.act_as('00000000-0000-0000-0000-00000000000c', 'authenticated');
+set role authenticated;
+select tests.rows('select * from public.dossier_items', 2, 'captain sees the club ledger');
+select tests.rows('select * from public.roster_entries', 0, 'captain cannot see player personal data');
+select tests.rows($$update public.dossier_items set category = 'meals' returning 1$$, 0,
+                  'captain cannot re-tag rows');
+select tests.rows('select id, kind, response from public.attestations', 1,
+                  'captain sees attestation status');
+select tests.denied('select token_hash from public.attestations',
+                    'nobody in the browser can read attestation token hashes');
+
+\warn '--- manager'
+reset role; select tests.act_as('00000000-0000-0000-0000-00000000000a', 'authenticated');
+set role authenticated;
+select tests.rows('select * from public.roster_entries', 1, 'manager sees the roster');
+select tests.rows($$update public.dossier_items set category = 'allowance'
+                    where tx = 'SJK3ABC12D' returning 1$$, 1, 'manager re-tags a draft row');
+select tests.denied($$update public.dossier_items set amt_cents = 1 where tx = 'SJK3ABC12D'$$,
+                    'manager cannot edit an amount from the statement');
+select tests.denied($$insert into public.dossier_items (dossier_id, club_id, tx, ts, amt_cents,
+                    dir, branch, category, cp_type, cp_ref, salt) values
+                    ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001',
+                     'SFAKE00001', now(), 100, 'out', 'B', 'meals', 'person', 'x', 'c2FsdC1mb3Ita2l0')$$,
+                    'manager cannot add rows that weren''t in the statement');
+select tests.denied($$update public.dossiers set status = 'approved'$$,
+                    'manager cannot change status directly');
+select tests.denied($$select public.transition_dossier('20000000-0000-0000-0000-000000000001',
+                    'submitted', '00000000-0000-0000-0000-00000000000a')$$,
+                    'browser users cannot call the state machine directly');
+select tests.denied($$insert into public.audit_log (action, hash) values ('forged', 'x')$$,
+                    'manager cannot write to the audit log');
+
+\warn '--- engine (service role): submit'
+reset role; select tests.act_as(null, 'service_role'); set role service_role;
+select tests.denied($$update public.dossiers set status = 'submitted'
+                    where id = '20000000-0000-0000-0000-000000000001'$$,
+                    'even the engine cannot change status without the state machine');
+select tests.denied($$select public.transition_dossier('20000000-0000-0000-0000-000000000001',
+                    'submitted', '00000000-0000-0000-0000-00000000000a')$$,
+                    'submit refused without the manager''s passkey signature');
+insert into public.approvals (dossier_id, club_id, user_id, role, challenge, cred_id,
+                              authenticator_data, client_data_json, signature)
+values ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001',
+        '00000000-0000-0000-0000-00000000000a', 'manager', repeat('ef', 32), 'cred-m', 'ad', 'cd', 'sig');
+select tests.denied($$select public.transition_dossier('20000000-0000-0000-0000-000000000001',
+                    'submitted', '00000000-0000-0000-0000-00000000000c')$$,
+                    'the captain cannot submit');
+select tests.ok((public.transition_dossier('20000000-0000-0000-0000-000000000001', 'submitted',
+                 '00000000-0000-0000-0000-00000000000a')).status = 'submitted',
+                'the manager submits');
+
+\warn '--- after submission'
+reset role; select tests.act_as('00000000-0000-0000-0000-00000000000a', 'authenticated');
+set role authenticated;
+select tests.denied($$update public.dossier_items set category = 'meals' where tx = 'SJK3ABC12D'$$,
+                    'ledger rows freeze once submitted');
+reset role; set role service_role;
+select tests.denied($$delete from public.approvals$$, 'approvals can''t be removed');
+
+\warn '--- engine: approve'
+select tests.denied($$select public.transition_dossier('20000000-0000-0000-0000-000000000001',
+                    'approved', '00000000-0000-0000-0000-00000000000b')$$,
+                    'approve refused without the treasurer''s signature');
+insert into public.approvals (dossier_id, club_id, user_id, role, challenge, cred_id,
+                              authenticator_data, client_data_json, signature)
+values ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001',
+        '00000000-0000-0000-0000-00000000000b', 'treasurer', repeat('ef', 32), 'cred-t', 'ad', 'cd', 'sig');
+select tests.denied($$select public.transition_dossier('20000000-0000-0000-0000-000000000001',
+                    'approved', '00000000-0000-0000-0000-00000000000b')$$,
+                    'approve refused while an attestation is unanswered');
+update public.attestations set response = 'confirmed', used_at = now();
+select tests.denied($$select public.transition_dossier('20000000-0000-0000-0000-000000000001',
+                    'approved', '00000000-0000-0000-0000-00000000000a')$$,
+                    'the manager cannot approve their own dossier');
+select tests.ok((public.transition_dossier('20000000-0000-0000-0000-000000000001', 'approved',
+                 '00000000-0000-0000-0000-00000000000b')).status = 'approved',
+                'the treasurer approves');
+select tests.denied($$update public.attestations set response = 'disputed'$$,
+                    'attestations close once approved');
+
+\warn '--- engine: seal'
+set timezone = 'UTC';
+select tests.denied($$select public.seal_dossier('20000000-0000-0000-0000-000000000001',
+                    repeat('11', 32), '{"merkle_root": "different"}'::jsonb, 'local-dev', 'sig',
+                    'dossiers/x.pdf', repeat('22', 32))$$,
+                    'seal refused when the payload''s root doesn''t match');
+select tests.ok((public.seal_dossier('20000000-0000-0000-0000-000000000001', repeat('11', 32),
+                 jsonb_build_object('merkle_root', repeat('11', 32)), 'local-dev', 'sig',
+                 'dossiers/x.pdf', repeat('22', 32))).status = 'sealed', 'the engine seals');
+select tests.denied($$update public.dossiers set payload = '{}'::jsonb
+                    where id = '20000000-0000-0000-0000-000000000001'$$,
+                    'a sealed payload can''t be edited, even by the engine');
+select tests.denied($$delete from public.dossiers where id = '20000000-0000-0000-0000-000000000001'$$,
+                    'a sealed dossier can''t be deleted');
+select tests.denied($$update public.dossier_items set dossier_id = '20000000-0000-0000-0000-000000000003'
+                    where tx = 'SJK3ABC12D'$$,
+                    'a sealed row can''t be moved into a draft dossier');
+select tests.denied($$update public.attestations set item_id = '30000000-0000-0000-0000-000000000002'$$,
+                    'an attestation can''t be moved to another row');
+select tests.denied($$insert into public.dossier_items (dossier_id, club_id, tx, ts, amt_cents, dir,
+                    branch, category, cp_type, cp_ref, salt) values
+                    ('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000002',
+                     'SCLUBMIX01', now(), 100, 'out', 'B', 'meals', 'person', 'x', 'c2FsdC1mb3Ita2l0')$$,
+                    'a row''s club must match its dossier''s club');
+select tests.ok((select count(*) from public.dossier_items
+                 where dossier_id = '20000000-0000-0000-0000-000000000003') = 0,
+                'nothing was moved or added to the draft');
+
+\warn '--- public verifier'
+reset role; select tests.act_as(null, 'anon'); set role anon;
+select tests.ok(public.public_dossier('20000000-0000-0000-0000-000000000001') ->> 'status' = 'sealed',
+                'anyone can fetch a sealed dossier by ID');
+select tests.ok(public.public_dossier('20000000-0000-0000-0000-000000000001') ? 'signature',
+                'the public record includes the signature');
+select tests.ok(not (public.public_dossier('20000000-0000-0000-0000-000000000001') ? 'source_sha256'),
+                'the public record leaves out internal fields');
+
+\warn '--- revoke'
+reset role; set role service_role;
+select tests.denied($$select public.transition_dossier('20000000-0000-0000-0000-000000000001',
+                    'revoked', '00000000-0000-0000-0000-00000000000b', '  ')$$,
+                    'revoking needs a reason');
+select tests.ok((public.transition_dossier('20000000-0000-0000-0000-000000000001', 'revoked',
+                 '00000000-0000-0000-0000-00000000000b', 'Duplicate of the November dossier')).status
+                 = 'revoked', 'the treasurer revokes with a reason');
+select tests.denied($$update public.dossiers set revoke_reason = 'changed'
+                    where id = '20000000-0000-0000-0000-000000000001'$$,
+                    'a revoked dossier never changes');
+
+\warn '--- audit log'
+select tests.rows($$select * from public.audit_log
+                    where dossier_id = '20000000-0000-0000-0000-000000000001'$$, 4,
+                  'submit, approve, seal and revoke were each logged');
+select tests.denied('update public.audit_log set action = ''edited''',
+                    'audit entries can''t be edited, even by the engine');
+select tests.denied('delete from public.audit_log', 'audit entries can''t be deleted');
+select tests.ok(public.verify_audit_chain() is null, 'the audit hash chain is intact (UTC session)');
+set timezone = 'Africa/Nairobi';
+select tests.ok(public.verify_audit_chain() is null,
+                'the chain verifies the same from a Kenyan-time session');
+set timezone = 'UTC';
+reset role;
+-- Simulate tampering by a database superuser who switches the protection off.
+alter table public.audit_log disable trigger audit_log_no_update_delete;
+update public.audit_log set details = '{"reason": "edited"}' where action = 'dossier.revoked';
+alter table public.audit_log enable trigger audit_log_no_update_delete;
+select tests.ok(public.verify_audit_chain() is not null,
+                'tampering with an entry is detected by the hash chain');
+
+\warn 'ALL DATABASE TESTS PASSED'
