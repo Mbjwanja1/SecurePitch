@@ -28,7 +28,14 @@ export function fromB64url(text: string): Bytes {
 }
 
 export function toB64url(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes))
+  // Convert in chunks: spreading a large array into String.fromCharCode overflows the call
+  // stack (2 MB crashes in Node; Safari's argument limit is lower still).
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary)
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/, "");

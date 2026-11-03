@@ -139,3 +139,20 @@ describe("base64url decoding (same rules as the engine)", () => {
     expect(() => fromB64url(bad)).toThrow("invalid base64url");
   });
 });
+
+describe("base64url encoding of large inputs", () => {
+  it("encodes 5 MB (a receipt photo) without overflowing the call stack and round-trips", () => {
+    const bytes = new Uint8Array(5 * 1024 * 1024);
+    for (let i = 0; i < bytes.length; i++) bytes[i] = (i * 31 + 7) & 0xff;
+    const decoded = fromB64url(toB64url(bytes));
+    expect(decoded.length).toBe(bytes.length);
+    expect(decoded.every((v, i) => v === bytes[i])).toBe(true);
+  });
+
+  it("matches Node's base64url for chunk-boundary sizes", () => {
+    for (const n of [0, 1, 2, 3, 0x8000 - 1, 0x8000, 0x8000 + 1, 3 * 0x8000 + 2]) {
+      const bytes = Uint8Array.from({ length: n }, (_, i) => (i * 17) & 0xff);
+      expect(toB64url(bytes)).toBe(Buffer.from(bytes).toString("base64url"));
+    }
+  });
+});

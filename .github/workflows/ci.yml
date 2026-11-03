@@ -134,3 +134,8 @@ jobs:
         run: pnpm exec tsc --noEmit
       - if: steps.present.outputs.yes == 'true'
         run: pnpm test --if-present
+      # Production build with NO Supabase variables: proves no page reads them at build time
+      # (they're only needed per request), so a build can never depend on secrets being present.
+      - if: steps.present.outputs.yes == 'true'
+        name: Production build without Supabase variables
+        run: pnpm build
