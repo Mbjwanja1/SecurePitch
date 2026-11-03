@@ -115,7 +115,29 @@ def test_authenticated_request_within_limit_passes(size: int) -> None:
     assert inner.body == b"x" * size
 
 
-def test_public_path_needs_no_key() -> None:
+@pytest.mark.parametrize("path", ["/health", "/health/"])
+def test_public_path_needs_no_key(path: str) -> None:
     gate, inner = make_gate()
-    status, _ = run(gate, "/health", {}, [b""])
+    status, _ = run(gate, path, {}, [b""])
     assert status == 200 and inner.reached
+
+
+def test_trailing_slash_does_not_make_protected_paths_public() -> None:
+    gate, inner = make_gate()
+    status, _ = run(gate, "/v1/parse/", {}, [b""])
+    assert (status, inner.reached) == (401, False)
+
+
+@pytest.mark.parametrize("value", [" 512", "512 ", "\t512\t"])
+def test_content_length_whitespace_is_accepted(value: str) -> None:
+    gate, inner = make_gate()
+    headers = {"x-internal-key": KEY, "content-length": value}
+    status, _ = run(gate, "/v1/parse", headers, [b"x" * 512])
+    assert status == 200 and inner.reached
+
+
+def test_body_too_large_is_not_an_ordinary_exception() -> None:
+    # FastAPI turns any Exception raised during body parsing into a 400; this must escape it.
+    from app.middleware import _BodyTooLarge
+
+    assert not issubclass(_BodyTooLarge, Exception)

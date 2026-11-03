@@ -19,8 +19,12 @@ Send = Callable[[Message], Awaitable[None]]
 ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 
 
-class _BodyTooLarge(Exception):
-    pass
+class _BodyTooLarge(BaseException):  # noqa: N818 - control-flow signal, not an error type
+    """Raised inside the app while it reads the body.
+
+    BaseException, not Exception: FastAPI wraps any Exception raised during body parsing into
+    "400 There was an error parsing the body", which would hide this 413.
+    """
 
 
 class RequestGate:
@@ -34,7 +38,7 @@ class RequestGate:
     ) -> None:
         self.app = app
         self.key = internal_key.encode()
-        self.public_paths = frozenset(public_paths)
+        self.public_paths = frozenset(_normalise(p) for p in public_paths)
         self.max_body_bytes = max_body_bytes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -44,7 +48,7 @@ class RequestGate:
 
         headers = dict(scope["headers"])
 
-        if scope["path"] not in self.public_paths:
+        if _normalise(scope["path"]) not in self.public_paths:
             if not self.key:
                 # Fail closed: a missing key in config must never mean "no auth".
                 await _reject(send, 503, "Engine key is not configured")
@@ -56,6 +60,7 @@ class RequestGate:
 
         declared = headers.get(b"content-length")
         if declared is not None:
+            declared = declared.strip()  # HTTP allows optional whitespace around header values
             if not declared.isdigit():
                 await _reject(send, 400, "Invalid Content-Length")
                 return
@@ -87,6 +92,11 @@ class RequestGate:
         except _BodyTooLarge:
             if not response_started:
                 await _reject(send, 413, "Request body too large")
+
+
+def _normalise(path: str) -> str:
+    """Treat /health and /health/ as the same path; the root stays "/"."""
+    return path.rstrip("/") or "/"
 
 
 async def _reject(send: Send, status: int, detail: str) -> None:

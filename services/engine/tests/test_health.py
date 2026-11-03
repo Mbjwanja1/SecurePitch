@@ -52,6 +52,32 @@ def test_docs_public_in_dev(monkeypatch: pytest.MonkeyPatch) -> None:
     assert TestClient(create_app()).get("/docs").status_code == 200
 
 
+def test_health_with_trailing_slash_is_public(client: TestClient) -> None:
+    assert client.get("/health/").status_code == 200  # redirected to /health, not 401
+
+
+def test_streamed_upload_over_limit_is_413_when_fastapi_parses_the_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The realistic case: endpoints with Body/File parameters let FastAPI parse the body.
+    from fastapi import Body
+
+    monkeypatch.setenv("ENGINE_INTERNAL_KEY", KEY)
+    monkeypatch.setenv("ENGINE_MAX_BODY_BYTES", "1024")
+    app = create_app()
+
+    @app.post("/test-upload")
+    async def upload(data: bytes = Body(...)) -> dict[str, int]:
+        return {"n": len(data)}
+
+    def chunks():  # a generator body is sent chunked, without Content-Length
+        for _ in range(20):
+            yield b"x" * 300
+
+    r = TestClient(app).post("/test-upload", content=chunks(), headers={"X-Internal-Key": KEY})
+    assert r.status_code == 413
+
+
 def test_oversized_upload_rejected_end_to_end(client: TestClient) -> None:
     r = client.post(
         "/v1/ping",
