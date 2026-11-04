@@ -722,5 +722,190 @@
       "merkle_root": "95f67a5f8b5908d049fab397c4bc6bee895101df4077c6f307cb40a0363a2fc3"
     },
     "note": "verify(payload) must succeed; verify(tampered_payload) with the same signature must fail"
+  },
+  "approval": {
+    "note": "CRYPTO_SPEC section 6. Rebuild merkle_root from leaf_objects, then the challenge as SHA-256(canonical(payload)). clientDataJSON.challenge carries challenge_b64url.",
+    "snapshot": {
+      "dossier": {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "club_id": "00000000-0000-4000-8000-0000000000c1",
+        "club_name": "Synthetic Lionesses FC",
+        "period_from": "2026-10-01",
+        "period_to": "2026-10-31",
+        "source_sha256": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+        "rows_total": 47,
+        "integrity": {
+          "score_bp": 9500,
+          "checks": {
+            "balance_chain": {
+              "passed": true,
+              "weight_bp": 4000,
+              "detail": "47 rows"
+            },
+            "producer_baseline": {
+              "passed": false,
+              "weight_bp": 500,
+              "detail": "other"
+            }
+          }
+        }
+      },
+      "items": [
+        {
+          "tx": "SJK3ABC12D",
+          "ts": "2026-10-17T04:15:00+00:00",
+          "amt_cents": 25000,
+          "fee_cents": 700,
+          "dir": "out",
+          "branch": "B",
+          "category": "transport",
+          "cp_type": "player",
+          "cp_ref": "P01",
+          "fixture_code": "MD4-2026-10-17",
+          "salt": "c2FsdC1mb3ItZmFyZQ",
+          "receipt_sha256": null
+        },
+        {
+          "tx": "SJL7KIT01Q",
+          "ts": "2026-10-20T12:42:10+00:00",
+          "amt_cents": 2200000,
+          "fee_cents": 0,
+          "dir": "out",
+          "branch": "A",
+          "category": "kit",
+          "cp_type": "till",
+          "cp_ref": "5123456",
+          "fixture_code": null,
+          "salt": "c2FsdC1mb3Ita2l0",
+          "receipt_sha256": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+        },
+        {
+          "tx": "SJM2INC99Z",
+          "ts": "2026-10-03T06:30:00+00:00",
+          "amt_cents": 400000,
+          "fee_cents": 0,
+          "dir": "in",
+          "branch": "I",
+          "category": "income",
+          "cp_type": "person",
+          "cp_ref": "hmac:efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+          "fixture_code": null,
+          "salt": "aW5jb21lLXNhbHQ",
+          "receipt_sha256": null
+        }
+      ],
+      "planned_spends": [
+        {
+          "supplier": "Synthetic Sports",
+          "till": "5123456",
+          "amt_cents": 1500000,
+          "purpose": "Away kit"
+        }
+      ]
+    },
+    "leaf_objects": [
+      {
+        "v": 1,
+        "branch": "I",
+        "tx": "SJM2INC99Z",
+        "ts": "2026-10-03T09:30:00+03:00",
+        "amt": 400000,
+        "fee": 0,
+        "dir": "in",
+        "cp": {
+          "type": "person",
+          "ref": "hmac:efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef"
+        },
+        "cat": "income",
+        "fixture": null,
+        "ev": {
+          "receipt_sha256": null,
+          "attest": [],
+          "corroborated": false
+        },
+        "salt": "aW5jb21lLXNhbHQ"
+      },
+      {
+        "v": 1,
+        "branch": "B",
+        "tx": "SJK3ABC12D",
+        "ts": "2026-10-17T07:15:00+03:00",
+        "amt": 25000,
+        "fee": 700,
+        "dir": "out",
+        "cp": {
+          "type": "player",
+          "ref": "P01"
+        },
+        "cat": "transport",
+        "fixture": "MD4-2026-10-17",
+        "ev": {
+          "receipt_sha256": null,
+          "attest": [],
+          "corroborated": false
+        },
+        "salt": "c2FsdC1mb3ItZmFyZQ"
+      },
+      {
+        "v": 1,
+        "branch": "A",
+        "tx": "SJL7KIT01Q",
+        "ts": "2026-10-20T15:42:10+03:00",
+        "amt": 2200000,
+        "fee": 0,
+        "dir": "out",
+        "cp": {
+          "type": "till",
+          "ref": "5123456"
+        },
+        "cat": "kit",
+        "fixture": null,
+        "ev": {
+          "receipt_sha256": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+          "attest": [],
+          "corroborated": false
+        },
+        "salt": "c2FsdC1mb3Ita2l0"
+      }
+    ],
+    "payload": {
+      "v": 1,
+      "dossier_id": "00000000-0000-4000-8000-000000000002",
+      "club": {
+        "id": "00000000-0000-4000-8000-0000000000c1",
+        "name": "Synthetic Lionesses FC"
+      },
+      "period": {
+        "from": "2026-10-01",
+        "to": "2026-10-31"
+      },
+      "source_sha256": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+      "rows_total": 47,
+      "rows_disclosed": 3,
+      "merkle_root": "05119c7fdcaee594ccb5b3d76370a2f6f7c0076b82d388dbe7e6b9719de289ce",
+      "totals_cents": {
+        "income": 400000,
+        "kit": 2200000,
+        "transport": 25700
+      },
+      "integrity": {
+        "score_bp": 9500,
+        "checks": {
+          "balance_chain": true,
+          "producer_baseline": false
+        }
+      },
+      "planned_spends": [
+        {
+          "supplier": "Synthetic Sports",
+          "till": "5123456",
+          "amt": 1500000,
+          "purpose": "Away kit"
+        }
+      ]
+    },
+    "canonical": "{\"club\":{\"id\":\"00000000-0000-4000-8000-0000000000c1\",\"name\":\"Synthetic Lionesses FC\"},\"dossier_id\":\"00000000-0000-4000-8000-000000000002\",\"integrity\":{\"checks\":{\"balance_chain\":true,\"producer_baseline\":false},\"score_bp\":9500},\"merkle_root\":\"05119c7fdcaee594ccb5b3d76370a2f6f7c0076b82d388dbe7e6b9719de289ce\",\"period\":{\"from\":\"2026-10-01\",\"to\":\"2026-10-31\"},\"planned_spends\":[{\"amt\":1500000,\"purpose\":\"Away kit\",\"supplier\":\"Synthetic Sports\",\"till\":\"5123456\"}],\"rows_disclosed\":3,\"rows_total\":47,\"source_sha256\":\"5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e\",\"totals_cents\":{\"income\":400000,\"kit\":2200000,\"transport\":25700},\"v\":1}",
+    "challenge": "d4f0a103cfdb66021f80fdf3dce6c147c796327d25499d6f8855b78bce4bf929",
+    "challenge_b64url": "1PChA8_bZgIfgP3z3ObBR8eWMn0lSZ1viFW3i85L-Sk"
   }
 }

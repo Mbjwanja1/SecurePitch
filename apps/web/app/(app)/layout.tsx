@@ -21,6 +21,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
           <form action="/auth/signout" method="post" className="flex items-center gap-3">
             <span className="hidden text-sm text-muted-foreground sm:inline">{user.email}</span>
+            <Link href="/settings/passkeys" className="text-sm hover:underline">
+              Passkeys
+            </Link>
             <Button type="submit" variant="outline" size="sm">
               Sign out
             </Button>

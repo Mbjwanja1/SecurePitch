@@ -13,7 +13,7 @@ import httpx
 
 # Postgres error codes raised on purpose by our own database functions. Their messages are
 # written to be shown to users ("this statement is already in a submitted dossier").
-OUR_FUNCTION_ERRORS = {"42501", "23505", "23514", "P0001"}
+OUR_FUNCTION_ERRORS = {"42501", "23505", "23514", "P0001", "P0002", "40001"}
 
 
 class SupabaseError(RuntimeError):
@@ -100,3 +100,29 @@ class Supabase:
             self.http.post("/rpc/create_draft_dossier", json=params), "create the draft dossier"
         )
         return r.json()
+
+    # Passkey approvals (supabase/migrations/…_passkey_approvals.sql) ----------------------------
+
+    def approval_snapshot(self, dossier_id: str) -> dict[str, Any]:
+        r = self._ok(
+            self.http.post("/rpc/approval_snapshot", json={"p_dossier": dossier_id}),
+            "load the dossier",
+        )
+        return r.json()
+
+    def approve_dossier(self, params: dict[str, Any]) -> dict[str, Any]:
+        r = self._ok(self.http.post("/rpc/approve_dossier", json=params), "record the approval")
+        return r.json()
+
+    def passkeys(self, user_id: str) -> list[dict[str, Any]]:
+        r = self._ok(
+            self.http.get(
+                "/webauthn_credentials",
+                params={"select": "id,public_key,sign_count", "user_id": f"eq.{user_id}"},
+            ),
+            "load passkeys",
+        )
+        return r.json()
+
+    def add_passkey(self, params: dict[str, Any]) -> None:
+        self._ok(self.http.post("/rpc/add_passkey", json=params), "save the passkey")

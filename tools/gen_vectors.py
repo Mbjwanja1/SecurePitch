@@ -17,8 +17,14 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "services" / "engine"))
 
+from app.approvals import payload as approval  # noqa: E402
 from app.crypto.canonical import b64url, canonicalize, sha256  # noqa: E402
-from app.crypto.merkle import inclusion_proof, leaf_hash, merkle_root  # noqa: E402
+from app.crypto.merkle import (  # noqa: E402
+    inclusion_proof,
+    leaf_hash,
+    merkle_root,
+    sort_leaf_objects,
+)
 from app.crypto.signer import (  # noqa: E402
     LocalSigner,
     der_to_raw,
@@ -93,6 +99,50 @@ LEAVES: list[tuple[str, dict[str, Any]]] = [
 ]
 
 TREE_SIZES = [1, 2, 3, 4, 5, 7, 18]
+
+# An approval_snapshot() result, as the database returns it (timestamps in UTC).
+APPROVAL_SNAPSHOT: dict[str, Any] = {
+    "dossier": {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "club_id": "00000000-0000-4000-8000-0000000000c1",
+        "club_name": "Synthetic Lionesses FC",
+        "period_from": "2026-10-01",
+        "period_to": "2026-10-31",
+        "source_sha256": "5e" * 32,
+        "rows_total": 47,
+        "integrity": {
+            "score_bp": 9500,
+            "checks": {
+                "balance_chain": {"passed": True, "weight_bp": 4000, "detail": "47 rows"},
+                "producer_baseline": {"passed": False, "weight_bp": 500, "detail": "other"},
+            },
+        },
+    },
+    "items": [
+        {
+            "tx": "SJK3ABC12D", "ts": "2026-10-17T04:15:00+00:00", "amt_cents": 25000,
+            "fee_cents": 700, "dir": "out", "branch": "B", "category": "transport",
+            "cp_type": "player", "cp_ref": "P01", "fixture_code": "MD4-2026-10-17",
+            "salt": "c2FsdC1mb3ItZmFyZQ", "receipt_sha256": None,
+        },
+        {
+            "tx": "SJL7KIT01Q", "ts": "2026-10-20T12:42:10+00:00", "amt_cents": 2200000,
+            "fee_cents": 0, "dir": "out", "branch": "A", "category": "kit",
+            "cp_type": "till", "cp_ref": "5123456", "fixture_code": None,
+            "salt": "c2FsdC1mb3Ita2l0", "receipt_sha256": "cd" * 32,
+        },
+        {
+            "tx": "SJM2INC99Z", "ts": "2026-10-03T06:30:00+00:00", "amt_cents": 400000,
+            "fee_cents": 0, "dir": "in", "branch": "I", "category": "income",
+            "cp_type": "person", "cp_ref": "hmac:" + "ef" * 32, "fixture_code": None,
+            "salt": "aW5jb21lLXNhbHQ", "receipt_sha256": None,
+        },
+    ],
+    "planned_spends": [
+        {"supplier": "Synthetic Sports", "till": "5123456", "amt_cents": 1500000,
+         "purpose": "Away kit"},
+    ],
+}  # fmt: skip
 
 PAYLOAD: dict[str, Any] = {
     "v": 1,
@@ -172,6 +222,23 @@ def build() -> dict[str, Any]:
         ),
     }
 
+    approval_payload, _ = approval.build(APPROVAL_SNAPSHOT)
+    challenge = approval.challenge(approval_payload)
+    approval_vector = {
+        "note": (
+            "CRYPTO_SPEC section 6. Rebuild merkle_root from leaf_objects, then the challenge as "
+            "SHA-256(canonical(payload)). clientDataJSON.challenge carries challenge_b64url."
+        ),
+        "snapshot": APPROVAL_SNAPSHOT,
+        "leaf_objects": sort_leaf_objects(
+            [approval.leaf_object(i) for i in APPROVAL_SNAPSHOT["items"]]
+        ),
+        "payload": approval_payload,
+        "canonical": canonicalize(approval_payload).decode("utf-8"),
+        "challenge": challenge.hex(),
+        "challenge_b64url": b64url(challenge),
+    }
+
     return {
         "version": 1,
         "warning": (
@@ -182,6 +249,7 @@ def build() -> dict[str, Any]:
         "leaves": leaves,
         "trees": trees,
         "signature": signature,
+        "approval": approval_vector,
     }
 
 

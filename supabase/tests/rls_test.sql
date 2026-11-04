@@ -304,6 +304,93 @@ select tests.denied($$select public.create_draft_dossier('10000000-0000-0000-000
                     'browsers cannot call create_draft_dossier directly');
 reset role; select tests.act_as(null, 'service_role'); set role service_role;
 
+\warn '--- passkey approvals (approve_dossier)'
+reset role;
+create function tests.leaves(p_keys text[]) returns jsonb language sql as $$
+  select coalesce(jsonb_object_agg(k, repeat(right(k, 1), 64)), '{}'::jsonb) from unnest(p_keys) k
+$$;
+-- Sign as p_actor with passkey p_cred. The fingerprint defaults to the current one.
+create function tests.approve(p_actor uuid, p_cred text, p_count bigint,
+                              p_challenge text default repeat('c1', 32),
+                              p_leaves jsonb default tests.leaves('{SPA0000001,SPA0000002}'),
+                              p_fingerprint text default null) returns jsonb
+language sql as $$
+  select public.approve_dossier(d, p_actor,
+    coalesce(p_fingerprint, public.approval_snapshot(d) ->> 'fingerprint'),
+    p_challenge, p_leaves, p_cred, 'authdata', 'clientdata', 'sig', p_count)
+  from (select id as d from tests.ids where label = 'pk') x
+$$;
+grant execute on all functions in schema tests to service_role;
+select tests.act_as(null, 'service_role'); set role service_role;
+
+insert into tests.ids select 'pk', (public.create_draft_dossier('10000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-00000000000a', '2026-12-01', '2026-12-31', repeat('e5', 32), 30,
+  '{"score_bp": 9500}'::jsonb, tests.items('SPA')) ->> 'dossier_id')::uuid;
+select public.add_passkey('00000000-0000-0000-0000-00000000000a', 'cred-manager', 'cose-m', 0, '{internal}');
+select public.add_passkey('00000000-0000-0000-0000-00000000000b', 'cred-treasurer', 'cose-t', 5, null);
+select tests.denied($$select public.add_passkey('00000000-0000-0000-0000-00000000000c', 'cred-manager',
+                    'cose-x', 0, null)$$, 'a passkey ID can only be registered once');
+select tests.ok((select (s ->> 'status') = 'draft' and jsonb_array_length(s -> 'items') = 2
+                        and (s ->> 'fingerprint') ~ '^[0-9a-f]{64}$'
+                 from (select public.approval_snapshot(id) s from tests.ids where label = 'pk') x),
+                'the engine reads the rows and a fingerprint to build the challenge from');
+
+select tests.denied($$select tests.approve('00000000-0000-0000-0000-00000000000b', 'cred-treasurer', 6)$$,
+                    'the treasurer can''t submit a draft');
+select tests.denied($$select tests.approve('00000000-0000-0000-0000-00000000000a', 'cred-treasurer', 6)$$,
+                    'the manager can''t sign with someone else''s passkey');
+select tests.denied($$select tests.approve('00000000-0000-0000-0000-00000000000a', 'cred-manager', 0,
+                    p_leaves => tests.leaves('{SPA0000001}'))$$, 'every row needs its leaf hash');
+select tests.denied($$select tests.approve('00000000-0000-0000-0000-00000000000a', 'cred-manager', 0,
+                    p_leaves => tests.leaves('{SPA0000001,SPA0000002,SPA0000003}'))$$,
+                    'leaf hashes for rows that don''t exist are refused');
+-- The manager edits a row after the engine built the challenge, then the signature arrives.
+reset role;
+create temporary table stale as
+  select public.approval_snapshot(id) ->> 'fingerprint' as fp from tests.ids where label = 'pk';
+grant select on stale to service_role;
+update public.dossier_items set category = 'kit' where tx = 'SPA0000002';
+select tests.act_as(null, 'service_role'); set role service_role;
+select tests.denied($$select tests.approve('00000000-0000-0000-0000-00000000000a', 'cred-manager', 0,
+                    p_fingerprint => (select fp from stale))$$,
+                    'a signature over the rows as they were before an edit is refused');
+select tests.ok((select status from public.dossiers d join tests.ids i on i.id = d.id
+                 where i.label = 'pk') = 'draft', 'refused signatures change nothing');
+
+select tests.ok((tests.approve('00000000-0000-0000-0000-00000000000a', 'cred-manager', 0) ->> 'status')
+                = 'submitted', 'the manager''s passkey signature submits the dossier');
+select tests.rows($$select * from public.dossier_items i join tests.ids t on t.id = i.dossier_id
+                    where t.label = 'pk' and i.leaf_hash = repeat(right(i.tx, 1), 64)$$, 2,
+                  'leaf hashes are frozen with the manager''s signature');
+select tests.denied($$select tests.approve('00000000-0000-0000-0000-00000000000a', 'cred-manager', 1)$$,
+                    'the manager can''t sign twice');
+select tests.denied($$select tests.approve('00000000-0000-0000-0000-00000000000b', 'cred-treasurer', 6,
+                    p_challenge => repeat('c2', 32), p_leaves => null)$$,
+                    'the treasurer must sign exactly what the manager signed');
+select tests.denied($$select tests.approve('00000000-0000-0000-0000-00000000000b', 'cred-treasurer', 5,
+                    p_leaves => null)$$, 'a passkey counter that doesn''t go up is refused (cloned key)');
+select tests.ok((tests.approve('00000000-0000-0000-0000-00000000000b', 'cred-treasurer', 6, p_leaves => null)
+                 ->> 'status') = 'approved', 'the treasurer''s passkey signature approves it');
+select tests.ok((select sign_count from public.webauthn_credentials where id = 'cred-treasurer') = 6,
+                'the passkey''s counter is stored');
+select tests.rows($$select * from public.approvals a join tests.ids t on t.id = a.dossier_id
+                    where t.label = 'pk' and a.challenge = repeat('c1', 32)$$, 2,
+                  'both approvals record the same challenge');
+select tests.denied($$select tests.approve('00000000-0000-0000-0000-00000000000b', 'cred-treasurer', 7,
+                    p_leaves => null)$$, 'an approved dossier takes no more signatures');
+reset role; select tests.act_as('00000000-0000-0000-0000-00000000000a', 'authenticated'); set role authenticated;
+select tests.denied($$select public.approval_snapshot((select id from public.dossiers limit 1))$$,
+                    'browsers cannot read approval snapshots');
+select tests.denied($$select public.approve_dossier(gen_random_uuid(), '00000000-0000-0000-0000-00000000000a',
+                    repeat('0', 64), repeat('c1', 32), null, 'cred-manager', 'a', 'c', 's', 9)$$,
+                    'browsers cannot record approvals');
+select tests.denied($$select public.add_passkey('00000000-0000-0000-0000-00000000000a', 'cred-new', 'k', 0, null)$$,
+                    'browsers cannot register passkeys directly');
+select tests.denied($$insert into public.webauthn_credentials (id, user_id, public_key)
+                    values ('cred-sneaky', '00000000-0000-0000-0000-00000000000a', 'k')$$,
+                    'browsers cannot insert passkeys into the table either');
+reset role; select tests.act_as(null, 'service_role'); set role service_role;
+
 \warn '--- audit log'
 select tests.rows($$select * from public.audit_log
                     where dossier_id = '20000000-0000-0000-0000-000000000001'$$, 4,

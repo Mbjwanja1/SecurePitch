@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from app import __version__
 from app.config import load_settings
 from app.middleware import RequestGate
-from app.routers import clubs, health, statements
+from app.routers import approvals, clubs, health, statements
 from app.supabase import Supabase
 
 
@@ -21,6 +21,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(statements.router)
     app.include_router(clubs.router)
+    app.include_router(approvals.router)
     app.state.supabase = (
         Supabase(settings.supabase_url, settings.supabase_key)
         if settings.supabase_url and settings.supabase_key
