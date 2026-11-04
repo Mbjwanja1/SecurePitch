@@ -58,7 +58,8 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
     .from("dossier_items")
     .select("tx, ts, amt_cents, fee_cents, dir, category, cp_type, cp_ref, fixture_code")
     .eq("dossier_id", id)
-    .order("ts");
+    .order("ts")
+    .order("tx"); // rows in the same second (matchday fares) keep a stable order
   const items = (itemRows ?? []) as Item[];
   const income = items.filter((i) => i.dir === "in").reduce((s, i) => s + i.amt_cents, 0);
   const spent = items
