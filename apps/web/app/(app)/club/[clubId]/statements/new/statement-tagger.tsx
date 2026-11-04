@@ -102,12 +102,14 @@ export function StatementTagger({ clubId }: { clubId: string }) {
       if (!ok) {
         setError(json.error ?? "The draft couldn't be saved.");
         setProblems(Array.isArray(json.problems) ? json.problems : []);
+        setBusy(false);
         return;
       }
+      // Stay busy: the button must stay disabled while the dossier page loads, or a second
+      // click would send the draft again.
       router.push(`/dossiers/${json.dossier_id}`);
     } catch {
       setError("Couldn't reach SecurePitch. Check your connection and try again.");
-    } finally {
       setBusy(false);
     }
   }
