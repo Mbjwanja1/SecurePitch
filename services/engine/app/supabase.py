@@ -126,3 +126,15 @@ class Supabase:
 
     def add_passkey(self, params: dict[str, Any]) -> None:
         self._ok(self.http.post("/rpc/add_passkey", json=params), "save the passkey")
+
+    # Sealing (supabase/migrations/…_sealing.sql) -------------------------------------------
+
+    def seal_snapshot(self, dossier_id: str) -> dict[str, Any]:
+        r = self._ok(
+            self.http.post("/rpc/seal_snapshot", json={"p_dossier": dossier_id}), "load the dossier"
+        )
+        return r.json()
+
+    def seal_dossier(self, params: dict[str, Any]) -> dict[str, Any]:
+        r = self._ok(self.http.post("/rpc/seal_dossier", json=params), "seal the dossier")
+        return r.json()

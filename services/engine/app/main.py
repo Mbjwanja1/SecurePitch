@@ -2,9 +2,19 @@ from fastapi import FastAPI
 
 from app import __version__
 from app.config import load_settings
+from app.crypto.signer import Signer, signer_from_env
 from app.middleware import RequestGate
 from app.routers import approvals, clubs, health, statements
 from app.supabase import Supabase
+
+
+def _signer() -> Signer | None:
+    """The platform signer (SIGNER=local or kms). Missing settings mean sealing is unavailable,
+    not that the engine won't start: everything before sealing still works."""
+    try:
+        return signer_from_env()
+    except (KeyError, ValueError):
+        return None
 
 
 def create_app() -> FastAPI:
@@ -22,6 +32,7 @@ def create_app() -> FastAPI:
     app.include_router(statements.router)
     app.include_router(clubs.router)
     app.include_router(approvals.router)
+    app.state.signer = _signer()
     app.state.supabase = (
         Supabase(settings.supabase_url, settings.supabase_key)
         if settings.supabase_url and settings.supabase_key

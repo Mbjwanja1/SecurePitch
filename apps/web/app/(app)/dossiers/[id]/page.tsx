@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CATEGORY_LABEL, type Category, counterpartyLabel, formatKes, formatWhen } from "@/lib/tagging";
 
 import { ApprovalPanel } from "./approval-panel";
+import { SealPanel } from "./seal-panel";
 
 export const metadata: Metadata = { title: "Dossier · SecurePitch" };
 
@@ -28,6 +29,11 @@ type Dossier = {
   period_to: string;
   rows_total: number | null;
   integrity: { score_bp?: number } | null;
+  merkle_root: string | null;
+  kid: string | null;
+  sealed_at: string | null;
+  revoked_at: string | null;
+  revoke_reason: string | null;
   clubs: { name: string } | null;
 };
 
@@ -55,7 +61,10 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
   const supabase = await createClient();
   const { data } = await supabase
     .from("dossiers")
-    .select("id, club_id, status, period_from, period_to, rows_total, integrity, clubs(name)")
+    .select(
+      "id, club_id, status, period_from, period_to, rows_total, integrity, merkle_root, kid, " +
+        "sealed_at, revoked_at, revoke_reason, clubs(name)",
+    )
     .eq("id", id)
     .maybeSingle();
   const dossier = data as unknown as Dossier | null;
@@ -147,6 +156,51 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
           </CardContent>
         </Card>
       )}
+
+      {(dossier.status === "sealed" || dossier.status === "revoked") && dossier.sealed_at && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{dossier.status === "revoked" ? "Sealed, then revoked" : "Sealed"}</CardTitle>
+            <CardDescription>
+              SecurePitch signed the whole dossier, including both passkey signatures, on{" "}
+              {formatWhen(dossier.sealed_at)}. Any change to a row, total or signature breaks the
+              seal. The sponsor verification page comes next.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-muted-foreground">Signing key</dt>
+                <dd className="font-medium">
+                  {dossier.kid}
+                  {dossier.kid?.startsWith("local-") && (
+                    <span className="text-muted-foreground"> (development key, not production-signed)</span>
+                  )}
+                </dd>
+              </div>
+              {dossier.merkle_root && (
+                <div>
+                  <dt className="text-muted-foreground">Ledger fingerprint</dt>
+                  <dd className="font-mono font-medium">{fingerprint(dossier.merkle_root)}</dd>
+                </div>
+              )}
+              {dossier.status === "revoked" && (
+                <div className="sm:col-span-2">
+                  <dt className="text-muted-foreground">Revoked</dt>
+                  <dd className="font-medium">
+                    {dossier.revoked_at && formatWhen(dossier.revoked_at)}: {dossier.revoke_reason}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </CardContent>
+        </Card>
+      )}
+
+      {dossier.status === "approved" &&
+        (access?.role === "manager" || access?.role === "treasurer") && (
+          <SealPanel dossierId={dossier.id} />
+        )}
 
       {mySigningTurn && (
         <ApprovalPanel
