@@ -21,17 +21,28 @@ export function VerifyPanel({ record }: { record: PublicRecord }) {
   useEffect(() => {
     let live = true;
     (async () => {
+      let keys: PublicJwk[];
       try {
         const r = await fetch("/.well-known/securepitch-keys.json");
         if (!r.ok) throw new Error(`keys: ${r.status}`);
-        const { keys } = (await r.json()) as { keys: PublicJwk[] };
+        const body = (await r.json()) as { keys?: unknown };
+        if (!Array.isArray(body.keys)) throw new Error("keys: not a key set");
+        keys = body.keys as PublicJwk[];
+      } catch {
+        if (live) {
+          setState({ kind: "error", message: "Couldn't fetch SecurePitch's public keys. Try again." });
+        }
+        return;
+      }
+      try {
         // Passkeys are bound to the site they were made on, which is this one.
         const rp = { rpId: window.location.hostname, origins: [window.location.origin] };
         const v = await verifyDossier(record, keys, rp);
         if (live) setState({ kind: "done", v });
       } catch {
+        // verifyDossier fails checks rather than throwing; this is a last resort.
         if (live) {
-          setState({ kind: "error", message: "Couldn't fetch SecurePitch's public keys. Try again." });
+          setState({ kind: "error", message: "Couldn't check this dossier's signatures in this browser." });
         }
       }
     })();
@@ -54,8 +65,9 @@ export function VerifyPanel({ record }: { record: PublicRecord }) {
   }
 
   const { v } = state;
-  const signedAt = new Map(record.payload.approvals.map((a) => [a.role as string, a.signed_at]));
-  const devKey = record.payload.kid.startsWith("local-");
+  const approvals = Array.isArray(record.payload?.approvals) ? record.payload.approvals : [];
+  const signedAt = new Map(approvals.map((a) => [String(a?.role), a?.signed_at]));
+  const devKey = typeof record.payload?.kid === "string" && record.payload.kid.startsWith("local-");
   const trusted = v.authentic && v.status === "sealed";
   const title = !v.authentic
     ? "Not authentic"
@@ -84,7 +96,7 @@ export function VerifyPanel({ record }: { record: PublicRecord }) {
           </Row>
           {v.approvals.map(({ role, check }) => (
             <Row key={role} label={ROLE_LABEL[role] ?? role} check={check}>
-              {check.ok && signedAt.has(role) && ` ${formatWhen(signedAt.get(role)!)}.`}
+              {check.ok && signedAt.get(role) && ` ${formatWhen(signedAt.get(role)!)}.`}
             </Row>
           ))}
           {!v.record.ok && <Row label="Dossier" check={v.record} />}

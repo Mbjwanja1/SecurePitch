@@ -6,7 +6,7 @@ import { UUID_RE } from "@/lib/club-guard";
 import { fingerprint } from "@/lib/passkey-client";
 import { createClient } from "@/lib/supabase/server";
 import { CATEGORY_LABEL, type Category, formatKes, formatWhen } from "@/lib/tagging";
-import type { PublicRecord } from "@/lib/verify";
+import { isDisplayable } from "@/lib/verify";
 
 import { VerifyPanel } from "./verify-panel";
 
@@ -24,9 +24,22 @@ export default async function VerifyPage({ params }: { params: Promise<{ id: str
   // public_dossier() returns only sealed or revoked dossiers, and only their signed contents.
   const supabase = await createClient();
   const { data } = await supabase.rpc("public_dossier", { p_id: id });
-  const record = data as PublicRecord | null;
-  if (!record?.payload) notFound();
+  if (!data) notFound();
+  if (!isDisplayable(data)) {
+    return (
+      <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8">
+        <p className="text-sm font-semibold tracking-tight">SecurePitch · dossier verification</p>
+        <div role="alert" className="rounded-xl border border-destructive/50 bg-destructive/10 p-4">
+          <p className="font-semibold text-destructive">Not authentic</p>
+          <p className="text-sm">
+            This dossier&apos;s record is damaged and can&apos;t be checked. Don&apos;t rely on it.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
+  const record = data;
   const p = record.payload;
   // Income first, then spending categories in a fixed order.
   const totals = Object.entries(p.totals_cents).sort(([a], [b]) =>

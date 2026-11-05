@@ -10,6 +10,7 @@ import { type Bytes, concat, sha256, toB64url } from "@/lib/crypto/encoding";
 import {
   approvalPayloadOf,
   checkApproval,
+  isDisplayable,
   type PublicRecord,
   type SealedApproval,
   type SealedPayload,
@@ -153,5 +154,41 @@ describe("RS256 passkeys (older Windows Hello)", () => {
     expect((await checkApproval(presenceOnly.a, presenceOnly.challenge, RP)).detail).toContain(
       "wasn't verified",
     );
+  });
+
+  it("refuses a key labelled with any algorithm but RS256 or ES256", async () => {
+    const good = await rsaApproval();
+    const ps256 = { ...good.a, pubkey: { ...good.a.pubkey, alg: "PS256" } } as unknown as SealedApproval;
+    expect((await checkApproval(ps256, good.challenge, RP)).ok).toBe(false);
+
+    const ec = record();
+    (ec.payload.approvals[0].pubkey as { alg: string }).alg = "ES384";
+    expect((await verifyDossier(ec, KEYS, RP)).approvals[0].check.ok).toBe(false);
+  });
+});
+
+describe("damaged records", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const damage: [string, (p: any) => void][] = [
+    ["no approvals", (p) => delete p.approvals],
+    ["null approvals", (p) => (p.approvals = null)],
+    ["no kid", (p) => delete p.kid],
+    ["no club", (p) => delete p.club],
+    ["a fractional amount", (p) => (p.totals_cents.transport = 1.5)],
+    ["a planned spend without an amount", (p) => (p.planned_spends = [{ supplier: "x" }])],
+  ];
+
+  it.each(damage)("fails every check, without throwing, on %s", async (_, mutate) => {
+    const r = record();
+    mutate(r.payload);
+    expect(isDisplayable(r)).toBe(false);
+    const v = await verifyDossier(r, KEYS, RP);
+    expect(v.authentic).toBe(false);
+    expect(v.seal.detail).toContain("damaged");
+  });
+
+  it("accepts the genuine record as displayable", () => {
+    expect(isDisplayable(record())).toBe(true);
+    expect(isDisplayable(null)).toBe(false);
   });
 });

@@ -64,6 +64,49 @@ export type Verification = {
 
 const ROLES = ["manager", "treasurer"] as const;
 
+const isObject = (x: unknown): x is Record<string, unknown> =>
+  typeof x === "object" && x !== null && !Array.isArray(x);
+const isInt = (x: unknown): x is number => Number.isSafeInteger(x);
+
+/**
+ * Whether a record has every field the verification page displays. The database only holds
+ * payloads the engine sealed, but the page must never crash on one it didn't: a damaged record
+ * is shown as such, not as an error page.
+ */
+export function isDisplayable(record: unknown): record is PublicRecord {
+  if (!isObject(record) || !isObject(record.payload)) return false;
+  const p = record.payload;
+  return (
+    typeof record.id === "string" &&
+    (record.status === "sealed" || record.status === "revoked") &&
+    typeof p.kid === "string" &&
+    typeof p.sealed_at === "string" &&
+    typeof p.merkle_root === "string" &&
+    isObject(p.club) &&
+    typeof p.club.name === "string" &&
+    isObject(p.period) &&
+    typeof p.period.from === "string" &&
+    typeof p.period.to === "string" &&
+    isInt(p.rows_total) &&
+    isInt(p.rows_disclosed) &&
+    isObject(p.integrity) &&
+    isInt(p.integrity.score_bp) &&
+    isObject(p.totals_cents) &&
+    Object.values(p.totals_cents).every(isInt) &&
+    Array.isArray(p.planned_spends) &&
+    p.planned_spends.every(
+      (x) =>
+        isObject(x) &&
+        isInt(x.amt) &&
+        ["supplier", "till", "purpose"].every((f) => typeof x[f] === "string"),
+    ) &&
+    Array.isArray(p.approvals) &&
+    p.approvals.every(
+      (a) => isObject(a) && typeof a.role === "string" && typeof a.signed_at === "string",
+    )
+  );
+}
+
 /** The approval payload both passkeys signed: the sealed payload minus what sealing added. */
 export function approvalPayloadOf(sealed: SealedPayload): Record<string, unknown> {
   const added = new Set(["kid", "approvals", "sealed_at"]);
@@ -99,7 +142,8 @@ async function verifyAssertionSignature(
   signature: Bytes,
   data: Bytes,
 ): Promise<boolean> {
-  if (jwk.kty === "EC" && jwk.crv === "P-256") {
+  // Only the two algorithms the engine accepts at registration (ADR 0003); anything else fails.
+  if (jwk.kty === "EC" && jwk.crv === "P-256" && jwk.alg === "ES256") {
     const key = await crypto.subtle.importKey(
       "jwk",
       { kty: "EC", crv: "P-256", x: jwk.x, y: jwk.y, ext: true },
@@ -109,7 +153,7 @@ async function verifyAssertionSignature(
     );
     return crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, derToRaw(signature), data);
   }
-  if (jwk.kty === "RSA") {
+  if (jwk.kty === "RSA" && jwk.alg === "RS256") {
     // Older Windows Hello passkeys: RS256, signature already raw.
     const key = await crypto.subtle.importKey(
       "jwk",
@@ -159,13 +203,20 @@ export async function checkApproval(
   return { ok: false, detail: "The passkey signature doesn't match." };
 }
 
+/** Never throws: anything that can't be checked fails its check. */
 export async function verifyDossier(
   record: PublicRecord,
   keys: PublicJwk[],
   rp: RelyingParty,
 ): Promise<Verification> {
-  const challenge = await sha256(canonicalize(approvalPayloadOf(record.payload)));
-  const given = record.payload.approvals ?? [];
+  if (!isDisplayable(record)) return damaged(record);
+  let challenge: Bytes;
+  try {
+    challenge = await sha256(canonicalize(approvalPayloadOf(record.payload)));
+  } catch {
+    return damaged(record); // e.g. a fractional amount, which no sealed payload can hold
+  }
+  const given = record.payload.approvals;
   const approvals = await Promise.all(
     ROLES.map(async (role, i) => {
       const a = given[i];
@@ -190,5 +241,17 @@ export async function verifyDossier(
       recordCheck.ok &&
       approvals.every((a) => a.check.ok),
     status: record.status,
+  };
+}
+
+function damaged(record: unknown): Verification {
+  const check = { ok: false, detail: "This dossier's record is damaged and can't be checked." };
+  const status = isObject(record) && record.status === "revoked" ? "revoked" : "sealed";
+  return {
+    seal: check,
+    record: check,
+    approvals: ROLES.map((role) => ({ role, check })),
+    authentic: false,
+    status,
   };
 }
