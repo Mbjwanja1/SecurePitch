@@ -165,10 +165,10 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
             <CardDescription>
               SecurePitch signed the whole dossier, including both passkey signatures, on{" "}
               {formatWhen(dossier.sealed_at)}. Any change to a row, total or signature breaks the
-              seal. The sponsor verification page comes next.
+              seal.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-4">
             <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
               <div>
                 <dt className="text-muted-foreground">Signing key</dt>
@@ -194,6 +194,12 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
                 </div>
               )}
             </dl>
+            <Link
+              href={`/v/${dossier.id}`}
+              className="self-start text-sm font-medium underline-offset-4 hover:underline"
+            >
+              Open the sponsor verification page
+            </Link>
           </CardContent>
         </Card>
       )}

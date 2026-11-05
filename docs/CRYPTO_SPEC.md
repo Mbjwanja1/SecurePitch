@@ -80,7 +80,8 @@ To verify: start with `h = leaf_hash`; for each step, `h = node_hash(step.hash, 
 - **What is signed:** `d = SHA-256(canonical(payload))`. The signer receives the 32-byte digest `d`. With KMS this is `Sign(MessageType=DIGEST, SigningAlgorithm=ECDSA_SHA_256)`.
 - **Signature format on the wire:** DER, base64url. This is what KMS returns.
 - **Verifying in the browser:** WebCrypto's `verify()` hashes its input itself, so pass it the **canonical payload bytes, not `d`**. It also expects the raw 64-byte `r ‖ s` form, so convert from DER first. The vectors include both forms so this conversion is tested.
-- **Public keys** are published as JWK at `/.well-known/securepitch-keys.json`: `{"kid", "kty": "EC", "crv": "P-256", "x", "y", "alg": "ES256"}`. Every payload names its `kid`, so keys can be rotated.
+- **Public keys** are published as JWK at `/.well-known/securepitch-keys.json`: `{"kid", "kty": "EC", "crv": "P-256", "x", "y", "alg": "ES256"}`. Every payload names its `kid`, so keys can be rotated. A retired key stays published (`RETIRED_PUBLIC_KEYS` in the engine, printed with `python -m app.crypto.signer --public-jwk` before switching), so dossiers it sealed keep verifying.
+- **The verifier** (`/v/<dossier id>`, `apps/web/lib/verify.ts`) runs in the sponsor's browser: it checks the platform seal with the published key named by `kid`, that the record is the dossier the payload names, and both passkey assertions as section 6 lists, with this site's hostname as RP ID and its origin. A revoked dossier can still be authentic; the page says it was revoked and not to rely on it.
 
 ### The sealed payload
 

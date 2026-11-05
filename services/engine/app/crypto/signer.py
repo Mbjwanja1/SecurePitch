@@ -7,6 +7,7 @@ development key to AWS KMS is a configuration change (SIGNER=kms), not a code ch
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from collections.abc import Mapping
 from typing import Any, Protocol
@@ -177,5 +178,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--generate", action="store_true", help="print a new LOCAL_SIGNING_KEY value"
     )
-    if parser.parse_args().generate:
+    parser.add_argument(
+        "--public-jwk",
+        action="store_true",
+        help="print the configured signer's public JWK, for RETIRED_PUBLIC_KEYS when rotating",
+    )
+    args = parser.parse_args()
+    if args.generate:
         print(LocalSigner.generate().private_key_b64())
+    if args.public_jwk:
+        s = signer_from_env()
+        print(json.dumps(public_jwk(s.kid, s.public_key_der())))
