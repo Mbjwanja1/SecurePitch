@@ -30,3 +30,12 @@ keywords = ["07", "01", "254"]
     '''(^|/)pnpm-lock\.yaml$''',
     '''(^|/)uv\.lock$''',
   ]
+
+# WebAuthn authenticatorData is public by design: it travels in every sealed dossier a sponsor
+# downloads (docs/CRYPTO_SPEC.md section 5) and holds only an RP ID hash, flags and a counter.
+# Its base64url form trips the generic API-key rule in spec/test-vectors.json. Only lines that
+# are exactly this JSON field are exempt; every rule still scans everything else.
+[allowlist]
+description = "WebAuthn authenticatorData fields (public, not secrets)"
+regexTarget = "line"
+regexes = ['''^\s*"authenticatorData": "[A-Za-z0-9_-]+",?\s*$''']
