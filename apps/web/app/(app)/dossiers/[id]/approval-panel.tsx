@@ -83,12 +83,15 @@ export function ApprovalPanel({
         setError(r.error);
         setSummary(null); // whatever went wrong, review again before the next attempt
         setOptions(null);
+        setBusy(false);
         return;
       }
+      // Signed: drop the used challenge and stay busy while the page reloads, so the button
+      // can't start a second passkey prompt for a dossier that has already moved on.
+      setOptions(null);
       router.refresh();
     } catch (err) {
       setError(passkeyErrorMessage(err));
-    } finally {
       setBusy(false);
     }
   }

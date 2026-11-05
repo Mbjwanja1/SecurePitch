@@ -377,3 +377,17 @@ def test_payload_matches_the_published_vector() -> None:
     built, _ = payload.build(vectors["snapshot"])
     assert built == vectors["payload"]
     assert payload.challenge(built).hex() == vectors["challenge"]
+
+
+def test_planned_spends_order_never_changes_the_challenge() -> None:
+    spends = [
+        {"supplier": "kit shop", "till": "5123456", "amt_cents": 100, "purpose": "Kit"},
+        {"supplier": "Kit Shop", "till": "5123456", "amt_cents": 100, "purpose": "Kit"},
+        {"supplier": "Bus co", "till": "1234567", "amt_cents": 900, "purpose": "Away trip"},
+    ]
+    a, b = content(), content()
+    a["planned_spends"], b["planned_spends"] = spends, spends[::-1]
+    built = payload.build(a)[0]
+    assert payload.challenge(built) == payload.challenge(payload.build(b)[0])
+    # Code-point order: "Kit Shop" before "kit shop", whatever a database collation would say.
+    assert [p["supplier"] for p in built["planned_spends"]] == ["Bus co", "Kit Shop", "kit shop"]

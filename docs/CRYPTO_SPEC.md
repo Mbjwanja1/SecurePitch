@@ -146,7 +146,7 @@ The manager and the treasurer each sign the dossier with their own passkey (ADR 
 
 - `totals_cents` sums each category's leaves: `amt + fee` for money out, `amt` for money in.
 - `rows_total` counts every row of the statement; `rows_disclosed` counts the leaves. The difference is what the coach kept personal, shown to the treasurer before signing.
-- `planned_spends` is ordered by `(till, amt, supplier, purpose)`.
+- `planned_spends` is ordered by `(till, amt, supplier, purpose)`, comparing strings by Unicode code point (not a database collation).
 
 The WebAuthn challenge is
 
