@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Nairobi Lionesses FC · Sponsor Dossier</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=IBM+Plex+Mono&family=IBM+Plex+Sans&display=swap" rel="stylesheet">
+  <style>
+    /* --- BASE CSS --- */
+    :root { --pitch: #1E6A42; --pitch-soft: #E3F0E7; --seal: #A66A12; --seal-soft: #FBF0DC; --ink: #15211A; --muted: #56675D; --line: #D3DCD5; }
+    body { font: 9.5pt/1.45 "IBM Plex Sans", sans-serif; color: var(--ink); margin: 0; padding: 20px; background: #eee; }
+    .page { position: relative; background: #fff; padding: 40px; max-width: 800px; margin: 0 auto 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); min-height: 1000px; }
+    .mono { font-family: "IBM Plex Mono", monospace; font-size: 8.5pt; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    h1, h2, .club, .kicker, .verified { font-family: "Barlow Condensed", sans-serif; text-transform: uppercase; }
+    .run-head { display: flex; align-items: center; gap: 8pt; border-bottom: 2pt solid var(--pitch); padding-bottom: 6pt; }
+    .crest { width: 26pt; height: 26pt; background: var(--pitch); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+    .club { font-size: 12pt; color: var(--pitch); }
+    .sub { font-size: 7.5pt; color: var(--muted); }
+    .page-no { margin-left: auto; font-size: 7.5pt; color: var(--muted); text-transform: uppercase; }
+    .page-no b { font-size: 14pt; color: var(--ink); }
+    .title-row { display: flex; gap: 20pt; margin: 18pt 0; }
+    .kicker { color: var(--seal); font-size: 8pt; letter-spacing: .12em; }
+    h1 { font-size: 34pt; line-height: .95; color: var(--pitch); margin: 4pt 0 8pt; }
+    .lede { color: var(--muted); max-width: 320pt; }
+    .meta { border-left: 1pt solid var(--line); padding-left: 12pt; margin: 0; }
+    .meta dt { font-size: 7pt; color: var(--muted); text-transform: uppercase; margin-top: 6pt; }
+    .meta dd { margin: 0; }
+    .meta .big { font: 700 16pt "Barlow Condensed"; }
+    h2 { font-size: 12pt; color: var(--pitch); border-bottom: 1pt solid var(--line); padding-bottom: 3pt; margin: 16pt 0 8pt; }
+    h2 .no { color: var(--seal); }
+    .stats { display: flex; justify-content: space-between; }
+    .stats span { display: block; font-size: 7pt; color: var(--muted); text-transform: uppercase; }
+    .stats b { font: 700 18pt "Barlow Condensed"; }
+    .gold { color: var(--seal); }
+    .verify { display: flex; justify-content: space-between; gap: 16pt; }
+    .status { flex: 1; border: 1.5pt solid var(--pitch); padding: 10pt; }
+    .verified { color: var(--pitch); font-size: 18pt; }
+    .score b { font: 700 22pt "Barlow Condensed"; color: var(--seal); }
+    .approvers { display: flex; gap: 24pt; margin-top: 10pt; }
+    .sig { font-style: italic; font-size: 12pt; }
+    .role { font-size: 7pt; color: var(--muted); text-transform: uppercase; }
+    .qr { width: 110pt; text-align: center; }
+    .qr-label { font-size: 7.5pt; color: var(--seal); text-transform: uppercase; font-weight: 600; }
+    .qr-url { font-size: 6.5pt; color: var(--muted); word-break: break-all; }
+    table { width: 100%; border-collapse: collapse; }
+    th { font-size: 7pt; color: var(--muted); text-transform: uppercase; text-align: left; border-bottom: 1pt solid var(--line); padding: 4pt; }
+    td { padding: 5pt 4pt; border-bottom: .5pt solid var(--line); }
+    tfoot td { font-weight: 700; border-bottom: none; }
+    .summary-bar { display: flex; justify-content: space-between; background: var(--pitch-soft); border: 1pt solid var(--line); padding: 10pt 14pt; margin-top: 12pt; border-radius: 2pt; }
+    .summary-bar div { display: flex; flex-direction: column; }
+    .summary-bar span { font-size: 7.5pt; color: var(--muted); text-transform: uppercase; margin-bottom: 3pt; }
+    .summary-bar b { font-family: "Barlow Condensed", sans-serif; font-size: 14pt; color: var(--ink); }
+    .summary-bar b.gold { color: var(--seal); }
+    .small-note { font-size: 7.5pt; font-weight: normal; color: var(--seal); text-transform: none; display: block; margin-top: 2pt; }
+    .run-foot { position: absolute; bottom: 20px; left: 40px; right: 40px; display: flex; justify-content: space-between; font-size: 7pt; color: var(--muted); border-top: 1pt solid var(--line); padding-top: 4pt; }
+
+    /* --- PAGE 2 & 3 & 4 SPECIFIC CSS --- */
+    .tag { border: 1px solid var(--pitch); padding: 2pt 6pt; border-radius: 10pt; font-size: 7.5pt; color: var(--pitch); }
+    .summary-stats { display: flex; gap: 20pt; }
+    .summary-stats div { flex: 1; border-left: 1pt solid var(--line); padding-left: 10pt; }
+    .summary-stats b { display: block; font: 700 18pt "Barlow Condensed"; color: var(--pitch); }
+    .summary-stats span { font-size: 7.5pt; color: var(--muted); text-transform: uppercase; }
+    .summary-stats small { font-size: 7pt; color: var(--muted); }
+    .identity-box { border-left: 2pt solid var(--seal); padding-left: 12pt; max-width: 200pt; }
+    .audit-header { display: flex; justify-content: space-between; border-bottom: 1pt solid var(--line); padding-bottom: 6pt; font-size: 9pt; margin-bottom: 12pt; }
+    .player-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12pt 24pt; }
+    .player-card { display: grid; grid-template-columns: 20pt 1fr auto; gap: 4pt; align-items: center; border-bottom: 0.5pt solid var(--line); padding-bottom: 6pt; }
+    .p-num { color: var(--muted); font-size: 8pt; }
+    .p-name { font: 700 10pt "Barlow Condensed"; color: var(--pitch); }
+    .p-dates { grid-column: 2; font-size: 7pt; color: var(--muted); }
+    .p-amount { grid-column: 3; grid-row: 1; font-weight: 700; font-size: 9pt; }
+    .p-status { grid-column: 3; grid-row: 2; font-size: 7pt; color: var(--pitch); text-align: right; }
+    .how-it-works { margin-top: 20pt; border-top: 1pt solid var(--line); padding-top: 12pt; }
+    .receipt-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12pt; }
+    .receipt-card { border: 1pt solid var(--line); padding: 10pt; border-radius: 4pt; display: flex; flex-direction: column; gap: 8pt; }
+    .r-header { display: flex; justify-content: space-between; font-size: 7pt; color: var(--muted); text-transform: uppercase; }
+    .r-supplier { display: flex; gap: 8pt; align-items: center; border-bottom: 0.5pt solid var(--line); padding-bottom: 8pt; }
+    .r-logo { width: 20pt; height: 20pt; border-radius: 50%; border: 1pt solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 7pt; font-weight: bold; }
+    .r-name { font-weight: 700; font-size: 9pt; }
+    .r-location { font-size: 7pt; color: var(--muted); }
+    .r-details div { display: flex; justify-content: space-between; font-size: 7.5pt; margin-bottom: 2pt; }
+    .r-details span { color: var(--muted); text-transform: uppercase; }
+    .r-total { border-top: 0.5pt solid var(--line); margin-top: 4pt; padding-top: 4pt; font-weight: 700; font-size: 9pt; }
+    .paid { color: var(--pitch); }
+    .r-footer { display: flex; justify-content: space-between; font-size: 7pt; border-top: 0.5pt solid var(--line); padding-top: 6pt; margin-top: auto; }
+    .matched { color: var(--pitch); font-weight: bold; }
+    .evidence-privacy { margin-top: 24pt; border-top: 2pt solid var(--ink); padding-top: 12pt; }
+    .evidence-privacy h3 { font: 700 10pt "Barlow Condensed"; text-transform: uppercase; margin: 0 0 4pt; color: var(--ink); }
+    .evidence-privacy p { font-size: 8pt; color: var(--muted); margin: 0; }
+  </style>
+</head>
+<body>
+
+  <!-- PAGE 1 -->
+  <section class="page">
+    <header class="run-head">
+      <div class="crest">LNS</div>
+      <div>
+        <div class="club">Nairobi Lionesses FC</div>
+        <div class="sub">SecurePitch Sponsor Dossier · October 2026</div>
+      </div>
+      <div class="page-no">Summary &amp; authorisation <b>01</b> / 04</div>
+    </header>
+    <div class="title-row">
+      <div>
+        <div class="kicker">Sponsor assurance statement</div>
+        <h1>SecurePitch<br>Sponsor Dossier</h1>
+        <p class="lede">A privacy-safe record showing that sponsor funds reached the club and were used for football activity — without exposing the coach's personal M-Pesa account.</p>
+      </div>
+      <dl class="meta">
+        <dt>Reporting period</dt><dd class="big">October 2026</dd>
+        <dt>Dossier ID</dt><dd class="mono">SP-LNS-2026-10-0001</dd>
+        <dt>Prepared</dt><dd>1 November 2026 · Nairobi</dd>
+      </dl>
+    </div>
+    <h2><span class="no">01</span> Club account summary</h2>
+    <div class="stats">
+      <div><span>Sponsor money in</span><b>KES 4,000</b></div>
+      <div><span>Club spending</span><b>KES 7,626</b></div>
+      <div><span>Closing balance</span><b class="gold">KES 606</b></div>
+      <div><span>Transactions</span><b>5</b></div>
+    </div>
+    <h2><span class="no">02</span> Independent verification</h2>
+    <div class="verify">
+      <div class="status">
+        <div class="verified">✓ Verified</div>
+        <div class="sub" style="margin-bottom: 8pt;">Records sealed · 1 November 2026</div>
+        <div class="score"><b>95</b>/100 <span>integrity score</span></div>
+        <div class="approvers">
+          <div class="approver"><div class="sig">Eugene O.</div><div class="role">Coach · Approved</div></div>
+          <div class="approver"><div class="sig">Sarah W.</div><div class="role">Treasurer · Approved</div></div>
+        </div>
+      </div>
+      <div class="qr">
+        <div class="qr-label">Public verification</div>
+        <div style="font-size: 7.5pt; color: var(--muted); margin-bottom: 4pt;">Scan to verify this dossier</div>
+        <svg viewBox='0 0 10 10' style="background: #ddd; width: 90pt; height: 90pt;"><rect width='10' height='10' fill='#ddd'/></svg>
+        <div class="qr-url">https://securepitch.vercel.app/v/SP-LNS-2026-10-0001</div>
+      </div>
+    </div>
+    <h2><span class="no">03</span> Planned spends · pay suppliers directly</h2>
+    <table class="spends">
+      <thead><tr><th>Item / purpose</th><th>Supplier till or paybill</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+        <tr><td>Matchday bus, November</td><td class="mono">Till 5123456</td><td class="num">KES 4,500</td></tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="2" style="text-align: right;">Planned total</td>
+          <td class="num">KES 4,500<span class="small-note">KES 13,500 confirmed player fares</span></td>
+        </tr>
+      </tfoot>
+    </table>
+    <div class="summary-bar">
+      <div><span>Covered by October balance</span><b>KES 606</b></div>
+      <div><span>Requested from November tranche</span><b class="gold">KES 23,200</b></div>
+      <div><span>Paid to</span><b>Supplier tills only</b></div>
+    </div>
+    <footer class="run-foot">
+      <span class="mono">Dossier fingerprint · 3f03 5c42 5382 1196</span>
+      <span>Sealed by SecurePitch · verify at securepitch.vercel.app/v</span>
+    </footer>
+  </section>
+
+  <!-- PAGE 2 -->
+  <section class="page">
+    <header class="run-head">
+      <div class="crest">LNS</div>
+      <div><div class="club">Nairobi Lionesses FC</div><div class="sub">SecurePitch Sponsor Dossier · October 2026</div></div>
+      <div class="page-no">October Ledger <b>02</b> / 04</div>
+    </header>
+    <div class="title-row" style="margin-bottom: 20pt;">
+      <div>
+        <h1>October Ledger</h1>
+        <p class="lede">Club-only entries extracted from approved records. Personal transfers, balances and unrelated M-Pesa activity remain private.</p>
+      </div>
+    </div>
+    <table class="ledger-table">
+      <thead><tr><th>LN</th><th>Date</th><th>Receipt</th><th>Category</th><th>Paid To</th><th class="num">Amount</th><th>Evidence</th></tr></thead>
+      <tbody>
+        <tr><td class="mono" style="color: var(--muted);">01</td><td>03 Oct</td><td class="mono">MPX-6718</td><td><span class="tag">Transport</span></td><td>Umoja Shuttle Sacco</td><td class="num">4,800</td><td>✔️ Verified</td></tr>
+        <tr><td class="mono" style="color: var(--muted);">02</td><td>05 Oct</td><td class="mono">RCT-1042</td><td><span class="tag">Pitch fees</span></td><td>Nairobi Sports Ground</td><td class="num">3,500</td><td>📎 Receipt attached</td></tr>
+        <tr><td class="mono" style="color: var(--muted);">03</td><td>08 Oct</td><td class="mono">MPX-6881</td><td><span class="tag">Kit</span></td><td>Eastlands Sports</td><td class="num">7,800</td><td>📎 Receipt attached</td></tr>
+        <tr><td class="mono" style="color: var(--muted);">04</td><td>10 Oct</td><td class="mono">MPX-6912</td><td><span class="tag">Allowances</span></td><td>Players 01–09</td><td class="num">2,250</td><td>👤 Player-confirmed</td></tr>
+        <tr><td class="mono" style="color: var(--muted);">05</td><td>10 Oct</td><td class="mono">MPX-6913</td><td><span class="tag">Allowances</span></td><td>Players 10–18</td><td class="num">2,250</td><td>👤 Player-confirmed</td></tr>
+        <tr><td class="mono" style="color: var(--muted);">06</td><td>12 Oct</td><td class="mono">RCT-1069</td><td><span class="tag">Pitch fees</span></td><td>Olympic Primary Field</td><td class="num">3,000</td><td>📎 Receipt attached</td></tr>
+      </tbody>
+    </table>
+    <div class="summary-stats" style="margin-top: 20pt; border-top: 1pt solid var(--line); padding-top: 10pt;">
+      <div><span>Receipt Coverage</span><b>8 / 8</b><small>Supplier transactions</small></div>
+      <div><span>Player Confirmations</span><b>36 / 36</b><small>Payment acknowledgements</small></div>
+      <div><span>Exceptions</span><b class="gold">0</b><small>Unresolved ledger lines</small></div>
+    </div>
+    <footer class="run-foot">
+      <span class="mono">Dossier fingerprint · 3f03 5c42 5382 1196</span>
+      <span>Sealed by SecurePitch · verify at securepitch.vercel.app/v</span>
+    </footer>
+  </section>
+
+  <!-- PAGE 3 -->
+  <section class="page">
+    <header class="run-head">
+      <div class="crest">LNS</div>
+      <div><div class="club">Nairobi Lionesses FC</div><div class="sub">SecurePitch Sponsor Dossier · October 2026</div></div>
+      <div class="page-no">Squad Audit <b>03</b> / 04</div>
+    </header>
+    <div class="title-row" style="margin-bottom: 10pt;">
+      <div style="flex: 1;">
+        <div class="kicker">Player payment confirmations</div>
+        <h1>Squad Audit</h1>
+        <p class="lede">Matchday reimbursements are matched to private player attestations, then published here under rotating pseudonyms.</p>
+      </div>
+      <div class="identity-box">
+        <div class="verified" style="font-size: 12pt;">🔒 Identity Protected</div>
+        <p style="font-size: 7.5pt; margin: 4pt 0 0;">Names and phone numbers are hidden to protect all players, some of whom are minors. Sponsors see proof of payment—not identity.</p>
+      </div>
+    </div>
+    <div class="audit-header">
+      <span><b>18</b> registered squad members · <b>3</b> matchdays</span>
+      <span class="gold" style="font-weight: 700; font-size: 12pt;">KES 13,500</span>
+    </div>
+    <div class="player-grid">
+      <!-- Just repeating to show the layout -->
+      <div class="player-card"><div class="p-num">01</div><div class="p-name">PLAYER 01</div><div class="p-dates">10 Oct · 17 Oct · 24 Oct</div><div class="p-amount">KES 750</div><div class="p-status">✔️ confirmed</div></div>
+      <div class="player-card"><div class="p-num">02</div><div class="p-name">PLAYER 02</div><div class="p-dates">10 Oct · 17 Oct · 24 Oct</div><div class="p-amount">KES 750</div><div class="p-status">✔️ confirmed</div></div>
+      <div class="player-card"><div class="p-num">03</div><div class="p-name">PLAYER 03</div><div class="p-dates">10 Oct · 17 Oct · 24 Oct</div><div class="p-amount">KES 750</div><div class="p-status">✔️ confirmed</div></div>
+      <div class="player-card"><div class="p-num">04</div><div class="p-name">PLAYER 04</div><div class="p-dates">10 Oct · 17 Oct · 24 Oct</div><div class="p-amount">KES 750</div><div class="p-status">✔️ confirmed</div></div>
+    </div>
+    <div class="how-it-works">
+      <div class="verified" style="font-size: 9pt; color: var(--seal);">🛡️ How Confirmation Works</div>
+      <p style="font-size: 8pt; margin: 4pt 0 0; color: var(--muted);">Each player privately confirms the purpose and amount received. SecurePitch stores a one-way proof, keeps identity out of the public record, and flags any mismatch for the treasurer. These fares match ledger lines 04, 05, 07, 10 (KES 13,500).</p>
+    </div>
+    <footer class="run-foot">
+      <span class="mono">Sealed by SecurePitch · verify at securepitch.vercel.app/v</span>
+      <span>SP-KE · 10/26</span>
+    </footer>
+  </section>
+
+  <!-- PAGE 4 -->
+  <section class="page">
+    <header class="run-head">
+      <div class="crest">LNS</div>
+      <div><div class="club">Nairobi Lionesses FC</div><div class="sub">SecurePitch Sponsor Dossier · October 2026</div></div>
+      <div class="page-no">Receipt Evidence <b>04</b> / 04</div>
+    </header>
+    <div class="title-row" style="margin-bottom: 20pt;">
+      <div>
+        <h1>Receipt Evidence</h1>
+        <p class="lede">Cropped evidence previews. Each attachment is sealed to its ledger line; open the verified dossier to inspect the full-resolution record.</p>
+      </div>
+    </div>
+    <div class="receipt-grid">
+      <!-- Just repeating to show the layout -->
+      <div class="receipt-card">
+        <div class="r-header"><div>LEDGER LINE 01</div><div>↗</div></div>
+        <div class="r-supplier"><div class="r-logo">US</div><div><div class="r-name">Umoja Shuttle Sacco</div><div class="r-location">Nairobi, Kenya</div></div></div>
+        <div class="r-details">
+          <div><span>Date</span> <b>03 Oct 2026</b></div>
+          <div><span>Ref</span> <b class="mono">MPX-6718</b></div>
+          <div><span>Purpose</span> <b>Transport</b></div>
+          <div class="r-total"><span>TOTAL</span> <b>KES 4,800</b></div>
+          <div><span>STATUS</span> <b class="paid">PAID</b></div>
+        </div>
+        <div class="r-footer"><span class="mono">MPX-6718</span><span class="matched">✔️ Matched</span></div>
+      </div>
+      <div class="receipt-card">
+        <div class="r-header"><div>LEDGER LINE 02</div><div>↗</div></div>
+        <div class="r-supplier"><div class="r-logo">NS</div><div><div class="r-name">Nairobi Sports Ground</div><div class="r-location">Nairobi, Kenya</div></div></div>
+        <div class="r-details">
+          <div><span>Date</span> <b>05 Oct 2026</b></div>
+          <div><span>Ref</span> <b class="mono">RCT-1042</b></div>
+          <div><span>Purpose</span> <b>Pitch fees</b></div>
+          <div class="r-total"><span>TOTAL</span> <b>KES 3,500</b></div>
+          <div><span>STATUS</span> <b class="paid">PAID</b></div>
+        </div>
+        <div class="r-footer"><span class="mono">RCT-1042</span><span class="matched">✔️ Matched</span></div>
+      </div>
+      <div class="receipt-card">
+        <div class="r-header"><div>LEDGER LINE 03</div><div>↗</div></div>
+        <div class="r-supplier"><div class="r-logo">ES</div><div><div class="r-name">Eastlands Sports</div><div class="r-location">Nairobi, Kenya</div></div></div>
+        <div class="r-details">
+          <div><span>Date</span> <b>08 Oct 2026</b></div>
+          <div><span>Ref</span> <b class="mono">MPX-6881</b></div>
+          <div><span>Purpose</span> <b>Kit</b></div>
+          <div class="r-total"><span>TOTAL</span> <b>KES 7,800</b></div>
+          <div><span>STATUS</span> <b class="paid">PAID</b></div>
+        </div>
+        <div class="r-footer"><span class="mono">MPX-6881</span><span class="matched">✔️ Matched</span></div>
+      </div>
+    </div>
+    <div class="evidence-privacy">
+      <h3>Evidence Privacy Notice</h3>
+      <p>Personal numbers and unrelated transaction details are removed before sealing. Original files stay encrypted and every access is logged. Evidence set 8437-2E19.</p>
+    </div>
+    <footer class="run-foot" style="border: none;">
+      <span class="mono">Sealed by SecurePitch · verify at securepitch.vercel.app/v</span>
+      <span>SP-KE · 10/26</span>
+    </footer>
+  </section>
+
+</body>
+</html>

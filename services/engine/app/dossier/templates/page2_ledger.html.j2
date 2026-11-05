@@ -1,0 +1,79 @@
+{% extends "base.html.j2" %}
+{% block pages %}
+<section class="page">
+  <header class="run-head">
+    <div class="crest">{{ club.short }}</div>
+    <div>
+      <div class="club">{{ club.name }}</div>
+      <div class="sub">SecurePitch Sponsor Dossier · {{ period.label }}</div>
+    </div>
+    <div class="page-no">October Ledger <b>02</b> / 04</div>
+  </header>
+
+  <div class="title-row" style="margin-bottom: 20pt;">
+    <div>
+      <h1>October Ledger</h1>
+      <p class="lede">Club-only entries extracted from approved records. Personal transfers, balances and unrelated M-Pesa activity remain private.</p>
+    </div>
+  </div>
+
+  <table class="ledger-table">
+    <thead>
+      <tr>
+        <th>LN</th><th>Date</th><th>Receipt</th><th>Category</th><th>Paid To</th><th class="num">Amount</th><th>Evidence</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in ledger_rows %}
+      <tr>
+        <td class="mono" style="color: var(--muted);">{{ row.ln }}</td>
+        <td>{{ row.date }}</td>
+        <td class="mono">{{ row.receipt }}</td>
+        <td><span class="tag">{{ row.category }}</span></td>
+        <td>{{ row.paid_to }}</td>
+        <td class="num">{{ row.amount }}</td>
+        <td>
+          {% if row.evidence == 'Verified' %}✔️ Verified
+          {% elif row.evidence == 'Receipt attached' %}📎 Receipt attached
+          {% elif row.evidence == 'Player-confirmed' %}👤 Player-confirmed
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="summary-stats" style="margin-top: 20pt; border-top: 1pt solid var(--line); padding-top: 10pt;">
+    <div>
+      <span>Receipt Coverage</span>
+      <b>8 / 8</b>
+      <small>Supplier transactions</small>
+    </div>
+    <div>
+      <span>Player Confirmations</span>
+      <b>36 / 36</b>
+      <small>Payment acknowledgements</small>
+    </div>
+    <div>
+      <span>Exceptions</span>
+      <b class="gold">0</b>
+      <small>Unresolved ledger lines</small>
+    </div>
+  </div>
+
+  <footer class="run-foot">
+    <span class="mono">Dossier fingerprint · {{ fingerprint }}</span>
+    <span>Sealed by SecurePitch · verify at securepitch.vercel.app/v</span>
+  </footer>
+</section>
+
+<style>
+  .tag { border: 1px solid var(--pitch); padding: 2pt 6pt; border-radius: 10pt; font-size: 7.5pt; color: var(--pitch); }
+  .ledger-table th { text-align: left; }
+  .summary-stats { display: flex; gap: 20pt; }
+  .summary-stats div { flex: 1; border-left: 1pt solid var(--line); padding-left: 10pt; }
+  .summary-stats b { display: block; font: 700 18pt "Barlow Condensed"; color: var(--pitch); }
+  .summary-stats span { font-size: 7.5pt; color: var(--muted); text-transform: uppercase; }
+  .summary-stats small { font-size: 7pt; color: var(--muted); }
+</style>
+{% endblock %} 

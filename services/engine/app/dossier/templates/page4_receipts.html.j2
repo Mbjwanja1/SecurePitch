@@ -1,0 +1,78 @@
+{% extends "base.html.j2" %}
+{% block pages %}
+<section class="page">
+  <header class="run-head">
+    <div class="crest">{{ club.short }}</div>
+    <div>
+      <div class="club">{{ club.name }}</div>
+      <div class="sub">SecurePitch Sponsor Dossier · {{ period.label }}</div>
+    </div>
+    <div class="page-no">Receipt Evidence <b>04</b> / 04</div>
+  </header>
+
+  <div class="title-row" style="margin-bottom: 20pt;">
+    <div>
+      <h1>Receipt Evidence</h1>
+      <p class="lede">Cropped evidence previews. Each attachment is sealed to its ledger line; open the verified dossier to inspect the full-resolution record.</p>
+    </div>
+  </div>
+
+  <div class="receipt-grid">
+    {% for r in receipts %}
+    <div class="receipt-card">
+      <div class="r-header">
+        <div class="r-ln">LEDGER LINE {{ r.ln }}</div>
+        <div class="r-icon">↗</div>
+      </div>
+      <div class="r-supplier">
+        <div class="r-logo">{{ r.initials }}</div>
+        <div>
+          <div class="r-name">{{ r.supplier }}</div>
+          <div class="r-location">Nairobi, Kenya</div>
+        </div>
+      </div>
+      <div class="r-details">
+        <div><span>Date</span> <b>{{ r.date }}</b></div>
+        <div><span>Ref</span> <b class="mono">{{ r.ref }}</b></div>
+        <div><span>Purpose</span> <b>{{ r.purpose }}</b></div>
+        <div class="r-total"><span>TOTAL</span> <b>{{ r.amount }}</b></div>
+        <div><span>STATUS</span> <b class="paid">{{ r.status }}</b></div>
+      </div>
+      <div class="r-footer">
+        <span class="mono">{{ r.ref }}</span>
+        <span class="matched">✔️ Matched</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="evidence-privacy">
+    <h3>Evidence Privacy Notice</h3>
+    <p>Personal numbers and unrelated transaction details are removed before sealing. Original files stay encrypted and every access is logged. Evidence set 8437-2E19.</p>
+  </div>
+
+  <footer class="run-foot" style="border: none;">
+    <span class="mono">Sealed by SecurePitch · verify at securepitch.vercel.app/v</span>
+    <span>SP-KE · 10/26</span>
+  </footer>
+</section>
+
+<style>
+  .receipt-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12pt; }
+  .receipt-card { border: 1pt solid var(--line); padding: 10pt; border-radius: 4pt; display: flex; flex-direction: column; gap: 8pt; }
+  .r-header { display: flex; justify-content: space-between; font-size: 7pt; color: var(--muted); text-transform: uppercase; }
+  .r-supplier { display: flex; gap: 8pt; align-items: center; border-bottom: 0.5pt solid var(--line); padding-bottom: 8pt; }
+  .r-logo { width: 20pt; height: 20pt; border-radius: 50%; border: 1pt solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 7pt; font-weight: bold; }
+  .r-name { font-weight: 700; font-size: 9pt; }
+  .r-location { font-size: 7pt; color: var(--muted); }
+  .r-details div { display: flex; justify-content: space-between; font-size: 7.5pt; margin-bottom: 2pt; }
+  .r-details span { color: var(--muted); text-transform: uppercase; }
+  .r-total { border-top: 0.5pt solid var(--line); margin-top: 4pt; padding-top: 4pt; font-weight: 700; font-size: 9pt; }
+  .paid { color: var(--pitch); }
+  .r-footer { display: flex; justify-content: space-between; font-size: 7pt; border-top: 0.5pt solid var(--line); padding-top: 6pt; margin-top: auto; }
+  .matched { color: var(--pitch); font-weight: bold; }
+  .evidence-privacy { margin-top: 24pt; border-top: 2pt solid var(--ink); padding-top: 12pt; }
+  .evidence-privacy h3 { font: 700 10pt "Barlow Condensed"; text-transform: uppercase; margin: 0 0 4pt; color: var(--ink); }
+  .evidence-privacy p { font-size: 8pt; color: var(--muted); margin: 0; }
+</style>
+{% endblock %}
