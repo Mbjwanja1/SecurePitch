@@ -306,7 +306,11 @@ async def keys(request: Request) -> dict[str, Any]:
     """The platform's public key(s) as JWK, published by the web app at
     /.well-known/securepitch-keys.json (CRYPTO_SPEC section 5)."""
     signer: Signer | None = getattr(request.app.state, "signer", None)
-    if signer is None:
-        return {"keys": []}
-    der = await run_in_threadpool(signer.public_key_der)
-    return {"keys": [public_jwk(signer.kid, der)]}
+    keys = []
+    if signer is not None:
+        keys.append(public_jwk(signer.kid, await run_in_threadpool(signer.public_key_der)))
+    # Retired keys stay published so dossiers they sealed keep verifying. The current key wins
+    # if a retired entry reuses its kid.
+    current = {k["kid"] for k in keys}
+    keys += [k for k in request.app.state.settings.retired_keys if k["kid"] not in current]
+    return {"keys": keys}

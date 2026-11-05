@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 
 from app.approvals import payload
 from app.approvals.seal import approval_payload_of
+from app.config import parse_retired_keys
 from app.crypto.signer import LocalSigner, payload_digest, public_jwk, verify_digest
 from app.main import create_app
 from tests.test_approvals import (
@@ -219,3 +220,40 @@ def test_retrying_a_seal_reads_the_dossier_once(engine, monkeypatch) -> None:
         monkeypatch.setattr(db, name, lambda d, _n=name, _o=original: (calls.append(_n), _o(d))[1])
     r = post(client, f"/v1/dossiers/{DOSSIER}/seal", {}, MANAGER)
     assert r.status_code == 200 and calls == ["seal_snapshot"]
+
+
+RETIRED = {
+    "kid": "local-2025",
+    "kty": "EC",
+    "crv": "P-256",
+    "alg": "ES256",
+    "x": "lBrrd5OhO4FnMb-IpR3vLlzIbrAPSSChTY0rZ5crRao",
+    "y": "DIPcJLcKDNsqxPd3D7W7CuKlXaECulw-sErvxip27_Y",
+}
+
+
+def test_retired_keys_stay_published_after_the_current_key(monkeypatch) -> None:
+    monkeypatch.setenv("ENGINE_INTERNAL_KEY", KEY)
+    stale_current = RETIRED | {"kid": "local-test"}
+    monkeypatch.setenv("RETIRED_PUBLIC_KEYS", json.dumps([RETIRED, stale_current]))
+    app = create_app()
+    app.state.signer = LocalSigner.generate("local-test")
+    keys = TestClient(app).get("/v1/keys", headers={"X-Internal-Key": KEY}).json()["keys"]
+    current = public_jwk("local-test", app.state.signer.public_key_der())
+    assert keys == [current, RETIRED]  # the live key wins over a retired entry with its kid
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        '{"kid": "x"}',
+        json.dumps([RETIRED | {"crv": "P-384"}]),
+        json.dumps([RETIRED | {"x": "short"}]),
+        json.dumps([{k: v for k, v in RETIRED.items() if k != "kid"}]),
+        json.dumps([RETIRED, RETIRED]),
+        "not json",
+    ],
+)
+def test_a_malformed_retired_key_stops_the_engine_starting(value) -> None:
+    with pytest.raises(ValueError):
+        parse_retired_keys(value)

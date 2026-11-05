@@ -1,6 +1,8 @@
 """Engine settings, read once from the environment (services/engine/.env via docker compose)."""
 
+import json
 import os
+import re
 from dataclasses import dataclass
 
 # Statements are capped at 5 MB (plan section 09). Saving a draft sends the PDF base64-encoded
@@ -21,10 +23,41 @@ class Settings:
     webauthn_rp_id: str = "localhost"
     webauthn_rp_name: str = "SecurePitch"
     webauthn_origins: tuple[str, ...] = ("http://localhost:3000",)
+    # Public keys of platform signing keys no longer in use. They stay published so dossiers
+    # sealed with them still verify (CRYPTO_SPEC section 5).
+    retired_keys: tuple[dict[str, str], ...] = ()
 
     @property
     def is_dev(self) -> bool:
         return self.env == "dev"
+
+
+_B64URL_32 = re.compile(r"^[A-Za-z0-9_-]{43}$")
+
+
+def parse_retired_keys(text: str) -> tuple[dict[str, str], ...]:
+    """RETIRED_PUBLIC_KEYS: a JSON array of the JWKs /v1/keys published for retired keys.
+    Anything malformed stops the engine starting: dropping a key silently would make every
+    dossier sealed with it fail verification."""
+    if not text.strip():
+        return ()
+    keys = json.loads(text)
+    if not isinstance(keys, list):
+        raise ValueError("RETIRED_PUBLIC_KEYS must be a JSON array of JWKs")
+    out = []
+    for k in keys:
+        if not (
+            isinstance(k, dict)
+            and isinstance(k.get("kid"), str)
+            and k["kid"]
+            and (k.get("kty"), k.get("crv"), k.get("alg")) == ("EC", "P-256", "ES256")
+            and all(isinstance(k.get(c), str) and _B64URL_32.match(k[c]) for c in ("x", "y"))
+        ):
+            raise ValueError(f"RETIRED_PUBLIC_KEYS: not a P-256 public JWK: {k!r}")
+        out.append({f: k[f] for f in ("kid", "kty", "crv", "alg", "x", "y")})
+    if len({k["kid"] for k in out}) != len(out):
+        raise ValueError("RETIRED_PUBLIC_KEYS: duplicate kid")
+    return tuple(out)
 
 
 def load_settings() -> Settings:
@@ -41,4 +74,5 @@ def load_settings() -> Settings:
             for o in os.environ.get("WEBAUTHN_ORIGINS", "http://localhost:3000").split(",")
             if o.strip()
         ),
+        retired_keys=parse_retired_keys(os.environ.get("RETIRED_PUBLIC_KEYS", "")),
     )
