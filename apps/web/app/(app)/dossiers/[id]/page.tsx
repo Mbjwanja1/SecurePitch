@@ -3,9 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { UUID_RE } from "@/lib/club-guard";
+import { roleIn, UUID_RE } from "@/lib/club-guard";
+import { fingerprint } from "@/lib/passkey-client";
 import { createClient } from "@/lib/supabase/server";
 import { CATEGORY_LABEL, type Category, counterpartyLabel, formatKes, formatWhen } from "@/lib/tagging";
+
+import { ApprovalPanel } from "./approval-panel";
 
 export const metadata: Metadata = { title: "Dossier · SecurePitch" };
 
@@ -27,6 +30,10 @@ type Dossier = {
   integrity: { score_bp?: number } | null;
   clubs: { name: string } | null;
 };
+
+type Approval = { role: string; user_id: string; challenge: string; created_at: string };
+
+const SIGNER_FOR: Record<string, "manager" | "treasurer"> = { draft: "manager", submitted: "treasurer" };
 
 type Item = {
   tx: string;
@@ -67,6 +74,22 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
     .reduce((s, i) => s + i.amt_cents + i.fee_cents, 0);
   const score = dossier.integrity?.score_bp;
 
+  const [{ data: approvalRows }, { data: members }, { count: passkeyCount }, access] =
+    await Promise.all([
+      supabase
+        .from("approvals")
+        .select("role, user_id, challenge, created_at")
+        .eq("dossier_id", id)
+        .order("created_at"),
+      supabase.from("club_members").select("user_id, display_name").eq("club_id", dossier.club_id),
+      supabase.from("webauthn_credentials").select("id", { count: "exact", head: true }),
+      roleIn(dossier.club_id),
+    ]);
+  const approvals = (approvalRows ?? []) as Approval[];
+  const names = new Map((members ?? []).map((m) => [m.user_id as string, m.display_name as string]));
+  const signer = SIGNER_FOR[dossier.status];
+  const mySigningTurn = signer && access?.role === signer ? signer : null;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -105,14 +128,14 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
         </CardContent>
       </Card>
 
-      {dossier.status === "draft" && (
+      {dossier.status === "draft" && access?.role === "manager" && (
         <Card>
           <CardHeader>
-            <CardTitle>Next: approvals</CardTitle>
+            <CardTitle>Check the draft</CardTitle>
             <CardDescription>
               This draft holds only the rows you tagged; the rest of the statement was not
               stored. To change the tags, upload the statement again: saving replaces this
-              draft. Submitting with your passkey comes next.
+              draft until you submit it.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -124,6 +147,38 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
             </Link>
           </CardContent>
         </Card>
+      )}
+
+      {mySigningTurn && (
+        <ApprovalPanel
+          dossierId={dossier.id}
+          signingAs={mySigningTurn}
+          hasPasskey={(passkeyCount ?? 0) > 0}
+        />
+      )}
+
+      {(approvals.length > 0 || signer) && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-lg font-semibold tracking-tight">Signatures</h2>
+          <ul className="flex flex-col divide-y rounded-xl border text-sm">
+            {(["manager", "treasurer"] as const).map((role) => {
+              const a = approvals.find((x) => x.role === role);
+              return (
+                <li key={role} className="flex flex-wrap items-center justify-between gap-2 p-3">
+                  <span>
+                    <span className="font-medium">{role === "manager" ? "Manager" : "Treasurer"}</span>
+                    {a && <span className="text-muted-foreground"> · {names.get(a.user_id) ?? "member"}</span>}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {a
+                      ? `signed with a passkey ${formatWhen(a.created_at)} · ${fingerprint(a.challenge)}`
+                      : "not signed yet"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
 
       <section className="flex flex-col gap-3">

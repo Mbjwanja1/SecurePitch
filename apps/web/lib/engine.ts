@@ -1,3 +1,5 @@
+import { NextResponse } from "next/server";
+
 // Calls to the Python engine, from route handlers only. ENGINE_URL and ENGINE_INTERNAL_KEY have
 // no NEXT_PUBLIC_ prefix, so they never reach the browser (docs/adr/0002, rule 7: the actor is
 // the signed-in user from the session, never from the request body).
@@ -10,12 +12,12 @@ export class EngineError extends Error {
   }
 }
 
-const GENERIC = "The statement service isn't available right now. Try again in a minute.";
+const GENERIC = "SecurePitch's engine isn't available right now. Try again in a minute.";
 
 // Engine statuses whose messages are written for the coach (bad password, bad tags, a draft
 // that's already submitted). Anything else (a wrong internal key, a crash) gets the generic
 // message, so configuration details never reach the browser.
-const USER_FACING = new Set([400, 403, 409, 413, 415, 422]);
+const USER_FACING = new Set([400, 403, 404, 409, 413, 415, 422]);
 
 /** Turn an engine error response into something safe to show the coach. */
 export function engineFailure(status: number, body: unknown): EngineFailure {
@@ -71,4 +73,39 @@ export async function callEngine<T>(path: string, call: Call): Promise<T> {
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) throw new EngineError(engineFailure(response.status, body));
   return body as T;
+}
+
+// Passkey responses are a few KB; anything much bigger isn't one.
+export const MAX_JSON_BYTES = 64 * 1024;
+
+/** Read a small JSON object body, or null if it's missing, too big or not an object. */
+export async function readSmallJson(request: Request): Promise<Record<string, unknown> | null> {
+  const text = await request.text().catch(() => "");
+  if (!text || text.length > MAX_JSON_BYTES) return null;
+  try {
+    const value: unknown = JSON.parse(text);
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Forward a JSON call to the engine for the signed-in user and relay its answer. */
+export async function relayJson(path: string, actor: string, body: unknown): Promise<NextResponse> {
+  try {
+    const out = await callEngine(path, {
+      actor,
+      body: JSON.stringify(body),
+      contentType: "application/json",
+    });
+    return NextResponse.json(out, { headers: { "Cache-Control": "no-store" } });
+  } catch (err) {
+    if (err instanceof EngineError) {
+      const { status, message, problems } = err.failure;
+      return NextResponse.json({ error: message, problems }, { status });
+    }
+    throw err;
+  }
 }

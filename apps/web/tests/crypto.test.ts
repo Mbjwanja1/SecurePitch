@@ -40,6 +40,13 @@ type Vectors = {
     signature_raw: string;
     tampered_payload: unknown;
   };
+  approval: {
+    leaf_objects: unknown[];
+    payload: { merkle_root: string; rows_disclosed: number };
+    canonical: string;
+    challenge: string;
+    challenge_b64url: string;
+  };
 };
 
 // The same file the Python engine tests against. If both suites pass, they agree.
@@ -154,5 +161,22 @@ describe("base64url encoding of large inputs", () => {
       const bytes = Uint8Array.from({ length: n }, (_, i) => (i * 17) & 0xff);
       expect(toB64url(bytes)).toBe(Buffer.from(bytes).toString("base64url"));
     }
+  });
+});
+
+describe("passkey approval challenge (CRYPTO_SPEC section 6)", () => {
+  const a = vectors.approval;
+
+  it("rebuilds the signed Merkle root from the leaves", async () => {
+    const hashes = await Promise.all(a.leaf_objects.map((o) => leafHash(o)));
+    expect(toHex(await merkleRoot(hashes))).toBe(a.payload.merkle_root);
+    expect(a.payload.rows_disclosed).toBe(a.leaf_objects.length);
+  });
+
+  it("rebuilds the challenge both approvers' passkeys signed", async () => {
+    expect(canonicalString(a.payload)).toBe(a.canonical);
+    const challenge = await sha256(canonicalize(a.payload));
+    expect(toHex(challenge)).toBe(a.challenge);
+    expect(toB64url(challenge)).toBe(a.challenge_b64url); // as in clientDataJSON.challenge
   });
 });

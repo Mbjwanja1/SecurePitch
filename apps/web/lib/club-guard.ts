@@ -24,6 +24,35 @@ export async function roleIn(clubId: string): Promise<{ userId: string; role: Ro
   return { userId: user.id, role: (data?.role as Role | undefined) ?? null };
 }
 
+function crossSite(request: NextRequest): NextResponse | null {
+  return isSameOrigin(
+    request.headers.get("origin"),
+    request.headers.get("sec-fetch-site"),
+    request.nextUrl.origin,
+  )
+    ? null
+    : NextResponse.json({ error: "Cross-site request refused" }, { status: 403 });
+}
+
+/**
+ * For route handlers that act for the signed-in user (passkeys, approvals): refuse cross-site
+ * posts and signed-out users. The engine decides what this user may do with a dossier.
+ */
+export async function requireUser(
+  request: NextRequest,
+): Promise<{ userId: string; email: string } | { response: NextResponse }> {
+  const refused = crossSite(request);
+  if (refused) return { response: refused };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { response: NextResponse.json({ error: "Sign in again to continue." }, { status: 401 }) };
+  }
+  return { userId: user.id, email: user.email ?? user.id };
+}
+
 /**
  * For route handlers that act for a club's manager: refuse cross-site posts, signed-out users
  * and anyone who isn't the manager. Returns the user ID to send to the engine as X-Actor-Id.
@@ -33,15 +62,8 @@ export async function requireManager(
   request: NextRequest,
   clubId: string,
 ): Promise<{ userId: string } | { response: NextResponse }> {
-  if (
-    !isSameOrigin(
-      request.headers.get("origin"),
-      request.headers.get("sec-fetch-site"),
-      request.nextUrl.origin,
-    )
-  ) {
-    return { response: NextResponse.json({ error: "Cross-site request refused" }, { status: 403 }) };
-  }
+  const refused = crossSite(request);
+  if (refused) return { response: refused };
   const access = await roleIn(clubId);
   if (!access) {
     return { response: NextResponse.json({ error: "Sign in again to continue." }, { status: 401 }) };

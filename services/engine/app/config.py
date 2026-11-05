@@ -17,6 +17,10 @@ class Settings:
     supabase_url: str = ""
     supabase_key: str = ""
     roster_pepper: str = ""
+    # Passkeys (ADR 0003): the web app's domain and the exact origins pages are served from.
+    webauthn_rp_id: str = "localhost"
+    webauthn_rp_name: str = "SecurePitch"
+    webauthn_origins: tuple[str, ...] = ("http://localhost:3000",)
 
     @property
     def is_dev(self) -> bool:
@@ -31,4 +35,10 @@ def load_settings() -> Settings:
         supabase_url=os.environ.get("SUPABASE_URL", ""),
         supabase_key=os.environ.get("SUPABASE_SERVICE_ROLE_KEY", ""),
         roster_pepper=os.environ.get("ROSTER_PEPPER", ""),
+        webauthn_rp_id=os.environ.get("WEBAUTHN_RP_ID", "localhost"),
+        webauthn_origins=tuple(
+            o.strip()
+            for o in os.environ.get("WEBAUTHN_ORIGINS", "http://localhost:3000").split(",")
+            if o.strip()
+        ),
     )

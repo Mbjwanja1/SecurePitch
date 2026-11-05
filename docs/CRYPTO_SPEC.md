@@ -57,6 +57,7 @@ To verify: start with `h = leaf_hash`; for each step, `h = node_hash(step.hash, 
   "tx": "SJK3ABC12D",
   "ts": "2026-10-17T07:15:00+03:00",
   "amt": 25000,
+  "fee": 700,
   "dir": "out",
   "cp": {"type": "player", "ref": "hmac:<hex>"},
   "cat": "transport",
@@ -67,6 +68,11 @@ To verify: start with `h = leaf_hash`; for each step, `h = node_hash(step.hash, 
 ```
 
 `branch` is `A` (merchant), `B` (squad) or `I` (club income). `cp.type` is `player`, `till`, `paybill` or `person`. The `salt` stops anyone from guessing a small leaf (one amount, one date) by brute force and checking it against a published hash.
+
+- `ts` is Kenyan time with seconds and the `+03:00` offset, whatever zone the database returns.
+- `fee` is the M-Pesa charge paid with this transfer, in cents (`0` if none). Club spending totals include it.
+- `cp.ref` is a player code (`P07`) for roster players, the till or paybill number for businesses, and `hmac:<mask_key>` (section 8) for anyone else.
+- `ev.receipt_sha256` is the SHA-256 of the receipt photo, or `null`. Until attestations and player corroboration are built (ADR 0003), `ev.attest` is `[]` and `ev.corroborated` is `false`: stated, not left out.
 
 ## 5. Signatures
 
@@ -91,7 +97,39 @@ uv run --directory services/engine python -m app.crypto.signer --generate
 
 ## 6. Approval challenge (passkeys)
 
-Each approver's passkey signs `c = SHA-256(canonical(payload without "approvals" and "sealed_at"))` as the WebAuthn challenge. The platform seal (section 5) is computed after the approvals are added, so it covers them. *(Implemented on Day 5.)*
+The manager and the treasurer each sign the dossier with their own passkey (ADR 0003). What they sign is the **approval payload**:
+
+```json
+{
+  "v": 1,
+  "dossier_id": "<uuid>",
+  "club": {"id": "<uuid>", "name": "Synthetic Lionesses FC"},
+  "period": {"from": "2026-10-01", "to": "2026-10-31"},
+  "source_sha256": "<hex: SHA-256 of the original statement PDF>",
+  "rows_total": 47,
+  "rows_disclosed": 20,
+  "merkle_root": "<hex: root over the leaves of section 4>",
+  "totals_cents": {"income": 400000, "meals": 180000, "transport": 462600},
+  "integrity": {"score_bp": 9500, "checks": {"balance_chain": true, "producer_baseline": false}},
+  "planned_spends": [{"supplier": "…", "till": "5123456", "amt": 1500000, "purpose": "Away kit"}]
+}
+```
+
+- `totals_cents` sums each category's leaves: `amt + fee` for money out, `amt` for money in.
+- `rows_total` counts every row of the statement; `rows_disclosed` counts the leaves. The difference is what the coach kept personal, shown to the treasurer before signing.
+- `planned_spends` is ordered by `(till, amt, supplier, purpose)`, comparing strings by Unicode code point (not a database collation).
+
+The WebAuthn challenge is
+
+```text
+c = SHA-256( canonical(approval payload) )        32 bytes; clientDataJSON.challenge = base64url(c)
+```
+
+Both approvers sign the same `c`: the ledger freezes when the manager submits, and the database refuses a treasurer signature over any other challenge. Sealing (section 5) adds exactly three fields, `kid`, `approvals` and `sealed_at`, and signs the result, so the platform seal covers the passkey signatures. A verifier rebuilds `c` by removing those three fields from the sealed payload.
+
+Each approval in the sealed payload carries the WebAuthn assertion (`authenticatorData`, `clientDataJSON`, `signature`) and the credential public key. A verifier checks that `clientDataJSON.type` is `webauthn.get`, its `challenge` equals `base64url(c)`, its `origin` is the SecurePitch web app, the authenticator data's RP ID hash is SHA-256 of the RP ID, the user-verified flag is set, and the signature over `authenticatorData ‖ SHA-256(clientDataJSON)` verifies (ES256, or RS256 for older Windows Hello).
+
+The `approval` entry in the test vectors gives a snapshot, its sorted leaves, the payload, and `c`.
 
 ## 7. Test vectors
 
