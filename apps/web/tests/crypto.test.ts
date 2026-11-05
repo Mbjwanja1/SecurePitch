@@ -47,6 +47,12 @@ type Vectors = {
     challenge: string;
     challenge_b64url: string;
   };
+  sealed: {
+    payload: Record<string, unknown> & { approvals: { clientDataJSON: string }[] };
+    canonical: string;
+    digest: string;
+    signature_der: string;
+  };
 };
 
 // The same file the Python engine tests against. If both suites pass, they agree.
@@ -178,5 +184,32 @@ describe("passkey approval challenge (CRYPTO_SPEC section 6)", () => {
     const challenge = await sha256(canonicalize(a.payload));
     expect(toHex(challenge)).toBe(a.challenge);
     expect(toB64url(challenge)).toBe(a.challenge_b64url); // as in clientDataJSON.challenge
+  });
+});
+
+describe("sealed dossier (CRYPTO_SPEC section 5)", () => {
+  const s = vectors.sealed;
+
+  it("verifies the platform seal over the whole sealed payload", async () => {
+    expect(canonicalString(s.payload)).toBe(s.canonical);
+    expect(toHex(await sha256(canonicalize(s.payload)))).toBe(s.digest);
+    const key = await importPublicJwk(vectors.signature.public_jwk);
+    expect(await verifyPayloadSignature(key, s.payload, s.signature_der)).toBe(true);
+  });
+
+  it("rebuilds the approvers' challenge by removing kid, approvals and sealed_at", async () => {
+    const { kid, approvals, sealed_at, ...approved } = s.payload;
+    expect([kid, sealed_at]).not.toContain(undefined);
+    expect(approved).toEqual(vectors.approval.payload);
+    for (const a of approvals) {
+      const clientData = JSON.parse(new TextDecoder().decode(fromB64url(a.clientDataJSON)));
+      expect(clientData.challenge).toBe(vectors.approval.challenge_b64url);
+    }
+  });
+
+  it("any change to the sealed payload breaks the seal", async () => {
+    const key = await importPublicJwk(vectors.signature.public_jwk);
+    const tampered = { ...s.payload, rows_disclosed: 2 };
+    expect(await verifyPayloadSignature(key, tampered, s.signature_der)).toBe(false);
   });
 });

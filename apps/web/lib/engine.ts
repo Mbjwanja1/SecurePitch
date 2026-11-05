@@ -46,33 +46,47 @@ type Call = {
   statementPassword?: string;
 };
 
+/** GET a public, actor-free engine resource (the platform's public keys). */
+export async function getFromEngine<T>(path: string): Promise<T> {
+  return request<T>(path, "GET", {});
+}
+
 export async function callEngine<T>(path: string, call: Call): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": call.contentType,
+    "X-Actor-Id": call.actor,
+  };
+  if (call.statementPassword !== undefined) headers["X-Statement-Password"] = call.statementPassword;
+  return request<T>(path, "POST", headers, call.body);
+}
+
+async function request<T>(
+  path: string,
+  method: "GET" | "POST",
+  extraHeaders: Record<string, string>,
+  body?: BodyInit,
+): Promise<T> {
   const base = process.env.ENGINE_URL;
   const key = process.env.ENGINE_INTERNAL_KEY;
   if (!base || !key) throw new EngineError({ status: 503, message: GENERIC });
 
-  const headers: Record<string, string> = {
-    "Content-Type": call.contentType,
-    "X-Internal-Key": key,
-    "X-Actor-Id": call.actor,
-  };
-  if (call.statementPassword !== undefined) headers["X-Statement-Password"] = call.statementPassword;
+  const headers = { ...extraHeaders, "X-Internal-Key": key };
 
   let response: Response;
   try {
     response = await fetch(new URL(path, base), {
-      method: "POST",
+      method,
       headers,
-      body: call.body,
+      body,
       cache: "no-store",
       signal: AbortSignal.timeout(60_000),
     });
   } catch {
     throw new EngineError({ status: 502, message: GENERIC });
   }
-  const body: unknown = await response.json().catch(() => null);
-  if (!response.ok) throw new EngineError(engineFailure(response.status, body));
-  return body as T;
+  const json: unknown = await response.json().catch(() => null);
+  if (!response.ok) throw new EngineError(engineFailure(response.status, json));
+  return json as T;
 }
 
 // Passkey responses are a few KB; anything much bigger isn't one.

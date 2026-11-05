@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "services" / "engine"))
 
 from app.approvals import payload as approval  # noqa: E402
+from app.approvals.passkeys import RelyingParty  # noqa: E402
+from app.approvals.seal import seal  # noqa: E402
 from app.crypto.canonical import b64url, canonicalize, sha256  # noqa: E402
 from app.crypto.merkle import (  # noqa: E402
     inclusion_proof,
@@ -31,7 +34,9 @@ from app.crypto.signer import (  # noqa: E402
     payload_digest,
     public_jwk,
 )
+from cryptography.hazmat.primitives import hashes  # noqa: E402
 from cryptography.hazmat.primitives.asymmetric import ec  # noqa: E402
+from webauthn.helpers import encode_cbor  # noqa: E402
 
 OUT = ROOT / "spec" / "test-vectors.json"
 TEST_KID = "test-vector-key-v1"
@@ -166,6 +171,53 @@ def test_signer() -> LocalSigner:
     return LocalSigner(TEST_KID, ec.derive_private_key(scalar, ec.SECP256R1()))
 
 
+class DeterministicSigner(LocalSigner):
+    """RFC 6979 signatures, so regenerating the vectors gives the same file."""
+
+    def sign_digest(self, digest: bytes, *, deterministic: bool = True) -> bytes:
+        return super().sign_digest(digest, deterministic=True)
+
+
+TEST_RP = RelyingParty("localhost", "SecurePitch", ("http://localhost:3000",))
+
+
+def test_passkey(role: str) -> ec.EllipticCurvePrivateKey:
+    scalar = int.from_bytes(sha256(f"securepitch public test passkey {role} v1".encode()), "big")
+    return ec.derive_private_key(scalar, ec.SECP256R1())
+
+
+def test_assertion(role: str, challenge: bytes, created_at: str) -> dict[str, Any]:
+    """A stored approval as approve_dossier() keeps it, signed by a public test passkey."""
+    key = test_passkey(role)
+    n = key.public_key().public_numbers()
+    cose = encode_cbor(
+        {1: 2, 3: -7, -1: 1, -2: n.x.to_bytes(32, "big"), -3: n.y.to_bytes(32, "big")}
+    )
+    client_data = json.dumps(
+        {
+            "type": "webauthn.get",
+            "challenge": b64url(challenge),
+            "origin": TEST_RP.origins[0],
+            "crossOrigin": False,
+        },
+        separators=(",", ":"),
+    ).encode()
+    auth_data = sha256(TEST_RP.rp_id.encode()) + bytes([0x05]) + (1).to_bytes(4, "big")
+    signature = key.sign(
+        auth_data + sha256(client_data), ec.ECDSA(hashes.SHA256(), deterministic_signing=True)
+    )
+    return {
+        "role": role,
+        "cred_id": b64url(f"test-passkey-{role}".encode()),
+        "challenge": challenge.hex(),
+        "authenticator_data": b64url(auth_data),
+        "client_data_json": b64url(client_data),
+        "signature": b64url(signature),
+        "created_at": created_at,
+        "public_key": b64url(cose),
+    }
+
+
 def build() -> dict[str, Any]:
     canonical = [
         {
@@ -239,6 +291,35 @@ def build() -> dict[str, Any]:
         "challenge_b64url": b64url(challenge),
     }
 
+    test_sealer = DeterministicSigner(TEST_KID, test_signer()._key)
+    seal_snapshot = APPROVAL_SNAPSHOT | {
+        "status": "approved",
+        "signatures": [
+            test_assertion("manager", challenge, "2026-11-04T07:00:00+00:00"),
+            test_assertion("treasurer", challenge, "2026-11-05T11:00:00+00:00"),
+        ],
+    }
+    sealed = seal(
+        seal_snapshot,
+        TEST_RP,
+        test_sealer,
+        now=datetime(2026, 11, 5, 14, 2, 11, tzinfo=UTC),
+    )
+    sealed_vector = {
+        "note": (
+            "CRYPTO_SPEC section 5. The platform signature (DER, base64url) is over "
+            "SHA-256(canonical(payload)) with signature.public_jwk. Removing kid, approvals and "
+            "sealed_at gives approval.payload, whose challenge each approvals[] entry signed "
+            "(WebAuthn, rp_id localhost, origin http://localhost:3000). Test keys are public."
+        ),
+        "rp_id": TEST_RP.rp_id,
+        "origin": TEST_RP.origins[0],
+        "payload": sealed.payload,
+        "canonical": canonicalize(sealed.payload).decode("utf-8"),
+        "digest": payload_digest(sealed.payload).hex(),
+        "signature_der": sealed.signature,
+    }
+
     return {
         "version": 1,
         "warning": (
@@ -250,6 +331,7 @@ def build() -> dict[str, Any]:
         "trees": trees,
         "signature": signature,
         "approval": approval_vector,
+        "sealed": sealed_vector,
     }
 
 

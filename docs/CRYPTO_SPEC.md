@@ -82,6 +82,35 @@ To verify: start with `h = leaf_hash`; for each step, `h = node_hash(step.hash, 
 - **Verifying in the browser:** WebCrypto's `verify()` hashes its input itself, so pass it the **canonical payload bytes, not `d`**. It also expects the raw 64-byte `r ‖ s` form, so convert from DER first. The vectors include both forms so this conversion is tested.
 - **Public keys** are published as JWK at `/.well-known/securepitch-keys.json`: `{"kid", "kty": "EC", "crv": "P-256", "x", "y", "alg": "ES256"}`. Every payload names its `kid`, so keys can be rotated.
 
+### The sealed payload
+
+Once both approvers have signed (section 6), the engine seals the dossier. The sealed payload is the approval payload plus exactly three fields:
+
+```json
+{
+  "...": "every field of the approval payload, unchanged",
+  "kid": "kms-2026-01",
+  "approvals": [
+    {
+      "role": "manager",
+      "signed_at": "2026-11-04T10:00:00+03:00",
+      "cred_id": "<base64url>",
+      "pubkey": {"kty": "EC", "crv": "P-256", "alg": "ES256", "x": "…", "y": "…"},
+      "authenticatorData": "<base64url>",
+      "clientDataJSON": "<base64url>",
+      "signature": "<base64url, DER>"
+    },
+    {"role": "treasurer", "...": "…"}
+  ],
+  "sealed_at": "2026-11-05T17:02:11+03:00"
+}
+```
+
+- `approvals` holds the manager's entry, then the treasurer's. `pubkey` is the passkey's public key as JWK (`{"kty": "RSA", "alg": "RS256", "n", "e"}` for RS256 keys), so a browser can import it with WebCrypto. The assertion fields are exactly what the authenticator returned.
+- The platform signature is over `d = SHA-256(canonical(sealed payload))`, as above, so it covers both passkey signatures.
+- Before signing, the engine re-verifies both assertions against the challenge rebuilt from the database, and verifies its own signature after. `seal_dossier()` refuses a seal unless the root equals the Merkle root over the leaf hashes frozen when the manager signed, recomputed in SQL, and the approvals are exactly the stored ones.
+- The `sealed` test vector is a sealed payload produced by the real sealing code, with public test passkeys, and its platform signature.
+
 ### Signer implementations
 
 | `SIGNER` | Key lives | Use |
@@ -125,7 +154,7 @@ The WebAuthn challenge is
 c = SHA-256( canonical(approval payload) )        32 bytes; clientDataJSON.challenge = base64url(c)
 ```
 
-Both approvers sign the same `c`: the ledger freezes when the manager submits, and the database refuses a treasurer signature over any other challenge. Sealing (section 5) adds exactly three fields, `kid`, `approvals` and `sealed_at`, and signs the result, so the platform seal covers the passkey signatures. A verifier rebuilds `c` by removing those three fields from the sealed payload.
+Both approvers sign the same `c`: the ledger freezes when the manager submits, and the database refuses a treasurer signature over any other challenge. Sealing (section 5, "The sealed payload") adds exactly three fields, `kid`, `approvals` and `sealed_at`, and signs the result, so the platform seal covers the passkey signatures. A verifier rebuilds `c` by removing those three fields from the sealed payload.
 
 Each approval in the sealed payload carries the WebAuthn assertion (`authenticatorData`, `clientDataJSON`, `signature`) and the credential public key. A verifier checks that `clientDataJSON.type` is `webauthn.get`, its `challenge` equals `base64url(c)`, its `origin` is the SecurePitch web app, the authenticator data's RP ID hash is SHA-256 of the RP ID, the user-verified flag is set, and the signature over `authenticatorData ‖ SHA-256(clientDataJSON)` verifies (ES256, or RS256 for older Windows Hello).
 

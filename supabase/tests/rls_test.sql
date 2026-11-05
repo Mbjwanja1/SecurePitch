@@ -73,14 +73,15 @@ insert into public.dossiers (id, club_id, period_from, period_to) values
   ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002', '2026-10-01', '2026-10-31'),
   ('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', '2026-11-01', '2026-11-30');
 
+-- Leaf hashes as if frozen when the manager signed (approve_dossier writes them).
 insert into public.dossier_items (id, dossier_id, club_id, tx, ts, amt_cents, dir, branch, category,
-                                  cp_type, cp_ref, salt) values
+                                  cp_type, cp_ref, salt, leaf_hash) values
   ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001',
    '10000000-0000-0000-0000-000000000001', 'SJK3ABC12D', '2026-10-17 07:15+03', 25000, 'out',
-   'B', 'transport', 'player', 'hmac:' || repeat('ab', 32), 'q3VbZ0xPa2N1dGVzdA'),
+   'B', 'transport', 'player', 'hmac:' || repeat('ab', 32), 'q3VbZ0xPa2N1dGVzdA', repeat('a1', 32)),
   ('30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001',
    '10000000-0000-0000-0000-000000000001', 'SJL7KIT01Q', '2026-10-20 15:42+03', 2200000, 'out',
-   'A', 'kit', 'till', '512345', 'c2FsdC1mb3Ita2l0');
+   'A', 'kit', 'till', '512345', 'c2FsdC1mb3Ita2l0', repeat('b2', 32));
 
 insert into public.attestations (item_id, club_id, kind, method, token_hash, expires_at) values
   ('30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'captain',
@@ -196,13 +197,87 @@ select tests.denied($$update public.attestations set response = 'disputed'$$,
 
 \warn '--- engine: seal'
 set timezone = 'UTC';
+reset role;
+-- The Merkle root in SQL matches the shared test vectors (CRYPTO_SPEC section 3).
+select tests.ok(public.merkle_root_hex(array['ab731557ebc3b01c621e80c5b17002249466264b3a9ad771a2a744bb57702137']) = 'ab731557ebc3b01c621e80c5b17002249466264b3a9ad771a2a744bb57702137',
+                'Merkle root of one leaf is the leaf (vector size-1)');
+select tests.ok(public.merkle_root_hex(array['ab731557ebc3b01c621e80c5b17002249466264b3a9ad771a2a744bb57702137',
+      '92403b97fa6289a2e9ac813423d3d591849622cab652380f330b7d6bc0181cd4',
+      '8fc8408444a5dc435398bfb1213c0e8446c0112802725c46ddd1477860b7f64f',
+      'f19d34e2c7a7956f0fea351728e6a0aa0f8030c9ed81ca2ad3829d15f98f2353',
+      '6b32fe0e4db7a7bebd80084ab705daf93c6aa6dc1692b2cc3923281d2038c539'])
+                = 'a84cb27277db7139cc51ce9206a23afbe623c32fc278e61b5802e603e9635c68',
+                'Merkle root in SQL matches vector size-5 (odd node promoted)');
+select tests.ok(public.merkle_root_hex(array['ab731557ebc3b01c621e80c5b17002249466264b3a9ad771a2a744bb57702137',
+      '92403b97fa6289a2e9ac813423d3d591849622cab652380f330b7d6bc0181cd4',
+      '8fc8408444a5dc435398bfb1213c0e8446c0112802725c46ddd1477860b7f64f',
+      'f19d34e2c7a7956f0fea351728e6a0aa0f8030c9ed81ca2ad3829d15f98f2353',
+      '6b32fe0e4db7a7bebd80084ab705daf93c6aa6dc1692b2cc3923281d2038c539',
+      'af162dac26641e7fd619de81148dcede33c4c115eb2b6694e3615a2eabe6572a',
+      'f7ac4ecf88f0597c39ffb3a4eece53462e74fc2894c9beb507d45283b60981f9'])
+                = 'a3c8cd9a0d35ebcb0b85e3e1a446ca1ed53fbbe23e1af2ddbb8c5a70711ccad5',
+                'Merkle root in SQL matches vector size-7');
+-- A seal for dossier 1: the root over its two frozen leaves in (ts, tx) order, and its two
+-- stored approvals.
+create function tests.root1() returns text language sql as $f$
+  select encode(sha256('\x01'::bytea || decode(repeat('a1', 32), 'hex')
+                       || decode(repeat('b2', 32), 'hex')), 'hex')
+$f$;
+create function tests.seal_payload(p_root text, p_approvals jsonb default null) returns jsonb
+language sql as $f$
+  select jsonb_build_object(
+    'v', 1, 'dossier_id', '20000000-0000-0000-0000-000000000001', 'kid', 'local-dev',
+    'merkle_root', p_root, 'sealed_at', '2026-11-06T10:00:00+03:00',
+    'approvals', coalesce(p_approvals, jsonb_build_array(
+      jsonb_build_object('role', 'manager', 'cred_id', 'cred-m', 'authenticatorData', 'ad',
+                         'clientDataJSON', 'cd', 'signature', 'sig'),
+      jsonb_build_object('role', 'treasurer', 'cred_id', 'cred-t', 'authenticatorData', 'ad',
+                         'clientDataJSON', 'cd', 'signature', 'sig'))))
+$f$;
+grant execute on all functions in schema tests to service_role;
+set role service_role;
 select tests.denied($$select public.seal_dossier('20000000-0000-0000-0000-000000000001',
                     repeat('11', 32), '{"merkle_root": "different"}'::jsonb, 'local-dev', 'sig',
                     'dossiers/x.pdf', repeat('22', 32))$$,
                     'seal refused when the payload''s root doesn''t match');
-select tests.ok((public.seal_dossier('20000000-0000-0000-0000-000000000001', repeat('11', 32),
-                 jsonb_build_object('merkle_root', repeat('11', 32)), 'local-dev', 'sig',
-                 'dossiers/x.pdf', repeat('22', 32))).status = 'sealed', 'the engine seals');
+select tests.denied($$select public.seal_dossier('20000000-0000-0000-0000-000000000001',
+                    repeat('11', 32), tests.seal_payload(repeat('11', 32)), 'local-dev', 'sig',
+                    null, null)$$,
+                    'seal refused when the root isn''t the frozen ledger''s');
+select tests.denied($$select public.seal_dossier('20000000-0000-0000-0000-000000000001',
+                    tests.root1(), tests.seal_payload(tests.root1(), jsonb_build_array(
+                      jsonb_build_object('role', 'manager', 'cred_id', 'cred-m', 'authenticatorData', 'ad',
+                                         'clientDataJSON', 'cd', 'signature', 'sig'))), 'local-dev', 'sig', null, null)$$,
+                    'seal refused when a passkey signature is left out');
+select tests.denied($$select public.seal_dossier('20000000-0000-0000-0000-000000000001',
+                    tests.root1(), tests.seal_payload(tests.root1(), jsonb_build_array(
+                      jsonb_build_object('role', 'manager', 'cred_id', 'cred-m', 'authenticatorData', 'ad',
+                                         'clientDataJSON', 'cd', 'signature', 'sig'),
+                      jsonb_build_object('role', 'treasurer', 'cred_id', 'cred-t', 'authenticatorData', 'ad',
+                                         'clientDataJSON', 'cd', 'signature', 'forged'))), 'local-dev', 'sig', null, null)$$,
+                    'seal refused when a passkey signature is altered');
+select tests.denied($$select public.seal_dossier('20000000-0000-0000-0000-000000000001',
+                    tests.root1(), tests.seal_payload(tests.root1()), 'kms-2026-01', 'sig',
+                    null, null)$$,
+                    'seal refused when the payload names another key');
+select tests.denied($$select public.seal_dossier('20000000-0000-0000-0000-000000000001',
+                    tests.root1(), tests.seal_payload(tests.root1()) - 'sealed_at', 'local-dev',
+                    'sig', null, null)$$,
+                    'seal refused without sealed_at');
+reset role; select tests.act_as('00000000-0000-0000-0000-00000000000b', 'authenticated');
+set role authenticated;
+select tests.denied($$select public.seal_snapshot('20000000-0000-0000-0000-000000000001')$$,
+                    'browsers cannot read seal snapshots');
+reset role; select tests.act_as(null, 'service_role'); set role service_role;
+select tests.ok(jsonb_array_length(public.seal_snapshot('20000000-0000-0000-0000-000000000001')
+                -> 'signatures') = 2, 'the engine reads both stored passkey signatures to seal');
+select tests.ok((public.seal_dossier('20000000-0000-0000-0000-000000000001', tests.root1(),
+                 tests.seal_payload(tests.root1()), 'local-dev', 'sig',
+                 'dossiers/x.pdf', repeat('22', 32))).status = 'sealed',
+                'the engine seals with the frozen root and the stored signatures');
+select tests.ok((select sealed_at from public.dossiers
+                 where id = '20000000-0000-0000-0000-000000000001')
+                = '2026-11-06T10:00:00+03:00'::timestamptz, 'sealed_at is the signed one');
 select tests.denied($$update public.dossiers set payload = '{}'::jsonb
                     where id = '20000000-0000-0000-0000-000000000001'$$,
                     'a sealed payload can''t be edited, even by the engine');

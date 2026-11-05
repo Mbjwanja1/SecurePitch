@@ -907,5 +907,83 @@
     "canonical": "{\"club\":{\"id\":\"00000000-0000-4000-8000-0000000000c1\",\"name\":\"Synthetic Lionesses FC\"},\"dossier_id\":\"00000000-0000-4000-8000-000000000002\",\"integrity\":{\"checks\":{\"balance_chain\":true,\"producer_baseline\":false},\"score_bp\":9500},\"merkle_root\":\"05119c7fdcaee594ccb5b3d76370a2f6f7c0076b82d388dbe7e6b9719de289ce\",\"period\":{\"from\":\"2026-10-01\",\"to\":\"2026-10-31\"},\"planned_spends\":[{\"amt\":1500000,\"purpose\":\"Away kit\",\"supplier\":\"Synthetic Sports\",\"till\":\"5123456\"}],\"rows_disclosed\":3,\"rows_total\":47,\"source_sha256\":\"5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e\",\"totals_cents\":{\"income\":400000,\"kit\":2200000,\"transport\":25700},\"v\":1}",
     "challenge": "d4f0a103cfdb66021f80fdf3dce6c147c796327d25499d6f8855b78bce4bf929",
     "challenge_b64url": "1PChA8_bZgIfgP3z3ObBR8eWMn0lSZ1viFW3i85L-Sk"
+  },
+  "sealed": {
+    "note": "CRYPTO_SPEC section 5. The platform signature (DER, base64url) is over SHA-256(canonical(payload)) with signature.public_jwk. Removing kid, approvals and sealed_at gives approval.payload, whose challenge each approvals[] entry signed (WebAuthn, rp_id localhost, origin http://localhost:3000). Test keys are public.",
+    "rp_id": "localhost",
+    "origin": "http://localhost:3000",
+    "payload": {
+      "v": 1,
+      "dossier_id": "00000000-0000-4000-8000-000000000002",
+      "club": {
+        "id": "00000000-0000-4000-8000-0000000000c1",
+        "name": "Synthetic Lionesses FC"
+      },
+      "period": {
+        "from": "2026-10-01",
+        "to": "2026-10-31"
+      },
+      "source_sha256": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+      "rows_total": 47,
+      "rows_disclosed": 3,
+      "merkle_root": "05119c7fdcaee594ccb5b3d76370a2f6f7c0076b82d388dbe7e6b9719de289ce",
+      "totals_cents": {
+        "income": 400000,
+        "kit": 2200000,
+        "transport": 25700
+      },
+      "integrity": {
+        "score_bp": 9500,
+        "checks": {
+          "balance_chain": true,
+          "producer_baseline": false
+        }
+      },
+      "planned_spends": [
+        {
+          "supplier": "Synthetic Sports",
+          "till": "5123456",
+          "amt": 1500000,
+          "purpose": "Away kit"
+        }
+      ],
+      "kid": "test-vector-key-v1",
+      "approvals": [
+        {
+          "role": "manager",
+          "signed_at": "2026-11-04T10:00:00+03:00",
+          "cred_id": "dGVzdC1wYXNza2V5LW1hbmFnZXI",
+          "pubkey": {
+            "kty": "EC",
+            "crv": "P-256",
+            "alg": "ES256",
+            "x": "lBrrd5OhO4FnMb-IpR3vLlzIbrAPSSChTY0rZ5crRao",
+            "y": "DIPcJLcKDNsqxPd3D7W7CuKlXaECulw-sErvxip27_Y"
+          },
+          "authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAAAQ",
+          "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiMVBDaEE4X2JaZ0lmZ1AzejNPYkJSOGVXTW4wbFNaMXZpRlczaTg1TC1TayIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMCIsImNyb3NzT3JpZ2luIjpmYWxzZX0",
+          "signature": "MEUCIDE-hHt-n-bj0PckSuN1uIVjm3K-_wx5BKKSr4T3qxWjAiEAvnVla7L1_L0jSNUSCXEruLqoXySsLZfd6RTYCqK22-Y"
+        },
+        {
+          "role": "treasurer",
+          "signed_at": "2026-11-05T14:00:00+03:00",
+          "cred_id": "dGVzdC1wYXNza2V5LXRyZWFzdXJlcg",
+          "pubkey": {
+            "kty": "EC",
+            "crv": "P-256",
+            "alg": "ES256",
+            "x": "z1vUrmWM3R6yPbwiOLnf3I4203jcaxRfK1JsPcJ1H3w",
+            "y": "xzQl-rwEZiV5WK32CUbCxguSEr9NWNLJzFA4wmx-ZWA"
+          },
+          "authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAAAQ",
+          "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiMVBDaEE4X2JaZ0lmZ1AzejNPYkJSOGVXTW4wbFNaMXZpRlczaTg1TC1TayIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMCIsImNyb3NzT3JpZ2luIjpmYWxzZX0",
+          "signature": "MEUCIQDW8PRUEvXaFkAIxL8StAbmkCe8QQ-u1UGy4aCf60hhdwIgaAWgcwQ6vaRjcrLaEmTLLdSQbjOWkrLj_-chD7qnhUY"
+        }
+      ],
+      "sealed_at": "2026-11-05T17:02:11+03:00"
+    },
+    "canonical": "{\"approvals\":[{\"authenticatorData\":\"SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAAAQ\",\"clientDataJSON\":\"eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiMVBDaEE4X2JaZ0lmZ1AzejNPYkJSOGVXTW4wbFNaMXZpRlczaTg1TC1TayIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMCIsImNyb3NzT3JpZ2luIjpmYWxzZX0\",\"cred_id\":\"dGVzdC1wYXNza2V5LW1hbmFnZXI\",\"pubkey\":{\"alg\":\"ES256\",\"crv\":\"P-256\",\"kty\":\"EC\",\"x\":\"lBrrd5OhO4FnMb-IpR3vLlzIbrAPSSChTY0rZ5crRao\",\"y\":\"DIPcJLcKDNsqxPd3D7W7CuKlXaECulw-sErvxip27_Y\"},\"role\":\"manager\",\"signature\":\"MEUCIDE-hHt-n-bj0PckSuN1uIVjm3K-_wx5BKKSr4T3qxWjAiEAvnVla7L1_L0jSNUSCXEruLqoXySsLZfd6RTYCqK22-Y\",\"signed_at\":\"2026-11-04T10:00:00+03:00\"},{\"authenticatorData\":\"SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAAAQ\",\"clientDataJSON\":\"eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiMVBDaEE4X2JaZ0lmZ1AzejNPYkJSOGVXTW4wbFNaMXZpRlczaTg1TC1TayIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzAwMCIsImNyb3NzT3JpZ2luIjpmYWxzZX0\",\"cred_id\":\"dGVzdC1wYXNza2V5LXRyZWFzdXJlcg\",\"pubkey\":{\"alg\":\"ES256\",\"crv\":\"P-256\",\"kty\":\"EC\",\"x\":\"z1vUrmWM3R6yPbwiOLnf3I4203jcaxRfK1JsPcJ1H3w\",\"y\":\"xzQl-rwEZiV5WK32CUbCxguSEr9NWNLJzFA4wmx-ZWA\"},\"role\":\"treasurer\",\"signature\":\"MEUCIQDW8PRUEvXaFkAIxL8StAbmkCe8QQ-u1UGy4aCf60hhdwIgaAWgcwQ6vaRjcrLaEmTLLdSQbjOWkrLj_-chD7qnhUY\",\"signed_at\":\"2026-11-05T14:00:00+03:00\"}],\"club\":{\"id\":\"00000000-0000-4000-8000-0000000000c1\",\"name\":\"Synthetic Lionesses FC\"},\"dossier_id\":\"00000000-0000-4000-8000-000000000002\",\"integrity\":{\"checks\":{\"balance_chain\":true,\"producer_baseline\":false},\"score_bp\":9500},\"kid\":\"test-vector-key-v1\",\"merkle_root\":\"05119c7fdcaee594ccb5b3d76370a2f6f7c0076b82d388dbe7e6b9719de289ce\",\"period\":{\"from\":\"2026-10-01\",\"to\":\"2026-10-31\"},\"planned_spends\":[{\"amt\":1500000,\"purpose\":\"Away kit\",\"supplier\":\"Synthetic Sports\",\"till\":\"5123456\"}],\"rows_disclosed\":3,\"rows_total\":47,\"sealed_at\":\"2026-11-05T17:02:11+03:00\",\"source_sha256\":\"5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e\",\"totals_cents\":{\"income\":400000,\"kit\":2200000,\"transport\":25700},\"v\":1}",
+    "digest": "9d27ec60ba65b99716a783124f9855cb30e60aebc51f3acf29289d9acecb80fb",
+    "signature_der": "MEUCIC5WkylTuoMC46NVY6zJFpTK596olnzzo11CJRkChppsAiEAwheWk8KaDT0mgiRelBM6yWIvJJR3o5a-fvASnF4SWco"
   }
 }
