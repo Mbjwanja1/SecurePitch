@@ -2,42 +2,42 @@ tx_id,completion_time,details,paid_in,withdrawn,balance,expected_tag,category,fi
 SJA0000002,2026-10-12 06:30:00,Customer Transfer of Funds Charge,,-13.00,"4,487.00",personal,,,Coach's personal transaction; must stay hidden
 SJA0000001,2026-10-12 06:30:00,Customer Transfer to - 254711***101 GRACE AKINYI,,-500.00,"4,500.00",personal,,,Coach's personal transaction; must stay hidden
 SJA0000003,2026-10-17 06:30:00,Funds received from - 254722***202 Well Wisher,"4,000.00",,"8,487.00",club,income,,Well-wisher donation to the club
-SJC0000000,2026-10-17 07:15:00,Customer Transfer of Funds Charge,,-7.00,"8,230.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJB0000000,2026-10-17 07:15:00,Customer Transfer to - 0700***000 MERCY ATIENO,,-250.00,"8,237.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJB0000001,2026-10-17 07:15:01,Customer Transfer to - 254700***001 Faith Wambui,,-250.00,"7,980.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJC0000001,2026-10-17 07:15:01,Customer Transfer of Funds Charge,,-7.00,"7,973.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJC0000002,2026-10-17 07:15:02,Customer Transfer of Funds Charge,,-7.00,"7,716.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJB0000002,2026-10-17 07:15:02,Customer Transfer to - 0700***002 JOY NJERI,,-250.00,"7,723.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJB0000003,2026-10-17 07:15:03,Customer Transfer to - 254700***003 Brenda Chebet,,-250.00,"7,466.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJC0000003,2026-10-17 07:15:03,Customer Transfer of Funds Charge,,-7.00,"7,459.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJC0000004,2026-10-17 07:15:04,Customer Transfer of Funds Charge,,-7.00,"7,202.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJB0000004,2026-10-17 07:15:04,Customer Transfer to - 0700***004 SHARON OTIENO,,-250.00,"7,209.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJB0000005,2026-10-17 07:15:05,Customer Transfer to - 254700***005 Lucy Muthoni,,-250.00,"6,952.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJC0000005,2026-10-17 07:15:05,Customer Transfer of Funds Charge,,-7.00,"6,945.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJC0000006,2026-10-17 07:15:06,Customer Transfer of Funds Charge,,-7.00,"6,688.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJB0000006,2026-10-17 07:15:06,Customer Transfer to - 0700***006 DIANA KERUBO,,-250.00,"6,695.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJB0000007,2026-10-17 07:15:07,Customer Transfer to - 254700***007 Ann Wairimu,,-250.00,"6,438.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJC0000007,2026-10-17 07:15:07,Customer Transfer of Funds Charge,,-7.00,"6,431.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJC0000008,2026-10-17 07:15:08,Customer Transfer of Funds Charge,,-7.00,"6,174.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJB0000008,2026-10-17 07:15:08,Customer Transfer to - 0700***008 VIVIAN ACHIENG,,-250.00,"6,181.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJB0000009,2026-10-17 07:15:09,Customer Transfer to - 254700***009 Esther Nyambura,,-250.00,"5,924.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJC0000009,2026-10-17 07:15:09,Customer Transfer of Funds Charge,,-7.00,"5,917.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJC0000010,2026-10-17 07:15:10,Customer Transfer of Funds Charge,,-7.00,"5,660.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJB0000010,2026-10-17 07:15:10,Customer Transfer to - 0700***010 PURITY JEPKOECH,,-250.00,"5,667.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJB0000011,2026-10-17 07:15:11,Customer Transfer to - 254700***011 Ruth Mumbua,,-250.00,"5,410.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJC0000011,2026-10-17 07:15:11,Customer Transfer of Funds Charge,,-7.00,"5,403.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJC0000012,2026-10-17 07:15:12,Customer Transfer of Funds Charge,,-7.00,"5,146.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJB0000012,2026-10-17 07:15:12,Customer Transfer to - 0700***012 IVY ODHIAMBO,,-250.00,"5,153.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJB0000013,2026-10-17 07:15:13,Customer Transfer to - 254700***013 Linda Wanjiru,,-250.00,"4,896.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJC0000013,2026-10-17 07:15:13,Customer Transfer of Funds Charge,,-7.00,"4,889.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJC0000014,2026-10-17 07:15:14,Customer Transfer of Funds Charge,,-7.00,"4,632.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJB0000014,2026-10-17 07:15:14,Customer Transfer to - 0700***014 CYNTHIA MORAA,,-250.00,"4,639.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJB0000015,2026-10-17 07:15:15,Customer Transfer to - 254700***015 Maureen Auma,,-250.00,"4,382.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJC0000015,2026-10-17 07:15:15,Customer Transfer of Funds Charge,,-7.00,"4,375.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJC0000016,2026-10-17 07:15:16,Customer Transfer of Funds Charge,,-7.00,"4,118.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
-SJB0000016,2026-10-17 07:15:16,Customer Transfer to - 0700***016 NANCY WAIRIMU,,-250.00,"4,125.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJB0000017,2026-10-17 07:15:17,Customer Transfer to - 254700***017 Agnes Nduta,,-250.00,"3,868.00",club,transport,LNS-2026-10-17,Matchday bus fare; roster match
-SJC0000017,2026-10-17 07:15:17,Customer Transfer of Funds Charge,,-7.00,"3,861.00",club,transport,LNS-2026-10-17,Charge on the bus fare in the same second
+SJC0000000,2026-10-17 07:15:00,Customer Transfer of Funds Charge,,-7.00,"8,230.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJB0000000,2026-10-17 07:15:00,Customer Transfer to - 0700***000 MERCY ATIENO,,-250.00,"8,237.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJB0000001,2026-10-17 07:15:01,Customer Transfer to - 254700***001 Faith Wambui,,-250.00,"7,980.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJC0000001,2026-10-17 07:15:01,Customer Transfer of Funds Charge,,-7.00,"7,973.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJC0000002,2026-10-17 07:15:02,Customer Transfer of Funds Charge,,-7.00,"7,716.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJB0000002,2026-10-17 07:15:02,Customer Transfer to - 0700***002 JOY NJERI,,-250.00,"7,723.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJB0000003,2026-10-17 07:15:03,Customer Transfer to - 254700***003 Brenda Chebet,,-250.00,"7,466.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJC0000003,2026-10-17 07:15:03,Customer Transfer of Funds Charge,,-7.00,"7,459.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJC0000004,2026-10-17 07:15:04,Customer Transfer of Funds Charge,,-7.00,"7,202.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJB0000004,2026-10-17 07:15:04,Customer Transfer to - 0700***004 SHARON OTIENO,,-250.00,"7,209.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJB0000005,2026-10-17 07:15:05,Customer Transfer to - 254700***005 Lucy Muthoni,,-250.00,"6,952.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJC0000005,2026-10-17 07:15:05,Customer Transfer of Funds Charge,,-7.00,"6,945.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJC0000006,2026-10-17 07:15:06,Customer Transfer of Funds Charge,,-7.00,"6,688.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJB0000006,2026-10-17 07:15:06,Customer Transfer to - 0700***006 DIANA KERUBO,,-250.00,"6,695.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJB0000007,2026-10-17 07:15:07,Customer Transfer to - 254700***007 Ann Wairimu,,-250.00,"6,438.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJC0000007,2026-10-17 07:15:07,Customer Transfer of Funds Charge,,-7.00,"6,431.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJC0000008,2026-10-17 07:15:08,Customer Transfer of Funds Charge,,-7.00,"6,174.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJB0000008,2026-10-17 07:15:08,Customer Transfer to - 0700***008 VIVIAN ACHIENG,,-250.00,"6,181.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJB0000009,2026-10-17 07:15:09,Customer Transfer to - 254700***009 Esther Nyambura,,-250.00,"5,924.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJC0000009,2026-10-17 07:15:09,Customer Transfer of Funds Charge,,-7.00,"5,917.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJC0000010,2026-10-17 07:15:10,Customer Transfer of Funds Charge,,-7.00,"5,660.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJB0000010,2026-10-17 07:15:10,Customer Transfer to - 0700***010 PURITY JEPKOECH,,-250.00,"5,667.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJB0000011,2026-10-17 07:15:11,Customer Transfer to - 254700***011 Ruth Mumbua,,-250.00,"5,410.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJC0000011,2026-10-17 07:15:11,Customer Transfer of Funds Charge,,-7.00,"5,403.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJC0000012,2026-10-17 07:15:12,Customer Transfer of Funds Charge,,-7.00,"5,146.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJB0000012,2026-10-17 07:15:12,Customer Transfer to - 0700***012 IVY ODHIAMBO,,-250.00,"5,153.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJB0000013,2026-10-17 07:15:13,Customer Transfer to - 254700***013 Linda Wanjiru,,-250.00,"4,896.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJC0000013,2026-10-17 07:15:13,Customer Transfer of Funds Charge,,-7.00,"4,889.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJC0000014,2026-10-17 07:15:14,Customer Transfer of Funds Charge,,-7.00,"4,632.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJB0000014,2026-10-17 07:15:14,Customer Transfer to - 0700***014 CYNTHIA MORAA,,-250.00,"4,639.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJB0000015,2026-10-17 07:15:15,Customer Transfer to - 254700***015 Maureen Auma,,-250.00,"4,382.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJC0000015,2026-10-17 07:15:15,Customer Transfer of Funds Charge,,-7.00,"4,375.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJC0000016,2026-10-17 07:15:16,Customer Transfer of Funds Charge,,-7.00,"4,118.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
+SJB0000016,2026-10-17 07:15:16,Customer Transfer to - 0700***016 NANCY WAIRIMU,,-250.00,"4,125.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJB0000017,2026-10-17 07:15:17,Customer Transfer to - 254700***017 Agnes Nduta,,-250.00,"3,868.00",club,transport,MD3-2026-10-17,Matchday bus fare; roster match
+SJC0000017,2026-10-17 07:15:17,Customer Transfer of Funds Charge,,-7.00,"3,861.00",club,transport,MD3-2026-10-17,Charge on the bus fare in the same second
 SJD0000001,2026-10-17 11:30:00,Merchant Payment to 5123456 - MAMA MBOGA KIOSK,,"-1,800.00","2,061.00",personal,,,Coach's personal transaction; must stay hidden
 SJD0000002,2026-10-17 12:30:00,Customer Payment to Small Business to - 254733***303 Peter Kamau,,-500.00,"1,561.00",personal,,,Coach's personal transaction; must stay hidden
 SJD0000003,2026-10-17 13:30:00,Pay Bill Online to 888880 - KPLC PREPAID Acc. SYN0000001,,"-1,000.00",561.00,personal,,,Coach's personal transaction; must stay hidden
@@ -45,4 +45,4 @@ SJD0000004,2026-10-17 13:30:00,Pay Bill Charge,,-5.00,556.00,personal,,,Coach's 
 SJD0000005,2026-10-17 14:30:00,Airtime Purchase,,-100.00,456.00,personal,,,Coach's personal transaction; must stay hidden
 SJD0000006,2026-10-17 15:30:00,Customer Bundle Purchase to 100000SYNTHETIC POSTPAID BUNDLE by - 254744***404 SYNTHETIC USER,,-50.00,406.00,personal,,,Coach's personal transaction; must stay hidden
 SJD0000007,2026-10-17 16:30:00,Business Payment from 300300 - SYNTHETIC Bulk Account via SYN Original conversation ID is 100000000001.,"3,200.00",,"3,606.00",personal,,,Coach's personal transaction; must stay hidden
-SJD0000008,2026-10-17 17:30:00,Customer Transfer to - 0755***505 Synthetic Captain,,"-3,000.00",606.00,club,allowance,LNS-2026-10-17,"Float to captain; not a roster number, so needs captain attestation"
+SJD0000008,2026-10-17 17:30:00,Customer Transfer to - 0755***505 Synthetic Captain,,"-3,000.00",606.00,club,allowance,MD3-2026-10-17,"Float to captain; not a roster number, so needs captain attestation"
