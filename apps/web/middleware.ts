@@ -7,6 +7,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Skip static files and images; run on every page and API route.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  // Skip static files, images and /.well-known (public keys for sponsors' verifiers: no session
+  // to refresh, and never a redirect). Run on every other page and API route.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };

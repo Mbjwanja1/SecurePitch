@@ -238,15 +238,21 @@ async def approval_verify(
 
 
 async def _seal(
-    request: Request, db: Supabase, rp: RelyingParty, dossier_id: str
+    request: Request,
+    db: Supabase,
+    rp: RelyingParty,
+    dossier_id: str,
+    snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """Seal an approved dossier. `snapshot` is a seal_snapshot() result the caller already has."""
     signer: Signer | None = getattr(request.app.state, "signer", None)
     if signer is None:
         raise HTTPException(
             503, {"code": "not_configured", "message": "The platform signing key isn't configured"}
         )
     try:
-        snapshot = await run_in_threadpool(db.seal_snapshot, dossier_id)
+        if snapshot is None:
+            snapshot = await run_in_threadpool(db.seal_snapshot, dossier_id)
         sealed = await run_in_threadpool(seal, snapshot, rp, signer)
         await run_in_threadpool(
             db.seal_dossier,
@@ -277,7 +283,8 @@ async def seal_now(
     if not UUID_RE.match(dossier_id):
         raise HTTPException(400, {"code": "bad_id", "message": "The dossier ID must be a UUID"})
     try:
-        snapshot = await run_in_threadpool(db.approval_snapshot, dossier_id)
+        # One read: seal_snapshot() is approval_snapshot() plus the stored signatures.
+        snapshot = await run_in_threadpool(db.seal_snapshot, dossier_id)
     except SupabaseError as exc:
         raise _db_error(exc) from None
     role = await run_in_threadpool(db.role_of, snapshot["dossier"]["club_id"], actor)
@@ -291,7 +298,7 @@ async def seal_now(
         raise HTTPException(
             409, {"code": "not_sealable", "message": "Only an approved dossier can be sealed"}
         )
-    return await _seal(request, db, rp, dossier_id)
+    return await _seal(request, db, rp, dossier_id, snapshot)
 
 
 @router.get("/keys")

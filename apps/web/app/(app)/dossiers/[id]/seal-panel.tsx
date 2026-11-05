@@ -18,9 +18,11 @@ export function SealPanel({ dossierId }: { dossierId: string }) {
     setBusy(true);
     setError(null);
     const r = await postJson(`/api/dossiers/${dossierId}/seal`, {});
-    setBusy(false);
-    if (!r.ok) return setError(r.error);
-    router.refresh();
+    if (!r.ok) {
+      setBusy(false);
+      return setError(r.error);
+    }
+    router.refresh(); // stay busy until the sealed page replaces this panel
   }
 
   return (

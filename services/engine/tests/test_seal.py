@@ -55,7 +55,8 @@ class SealDB(ApprovalDB):
         return result
 
     def seal_snapshot(self, dossier_id):
-        return self.approval_snapshot(dossier_id) | {
+        # One RPC in the real database; the base call here is that RPC's first half.
+        return ApprovalDB.approval_snapshot(self, dossier_id) | {
             "signatures": [
                 a | {"public_key": self.creds[a["cred_id"]]["public_key"]} for a in self.approvals
             ]
@@ -207,3 +208,14 @@ def test_sealed_vector_verifies_and_rebuilds_the_approval_challenge() -> None:
     spki = b64d(vectors["signature"]["public_key_spki"])
     assert verify_digest(spki, payload_digest(s["payload"]), b64d(s["signature_der"]))
     assert approval_payload_of(s["payload"]) == vectors["approval"]["payload"]
+
+
+def test_retrying_a_seal_reads_the_dossier_once(engine, monkeypatch) -> None:
+    client, db, app = engine
+    approved_but_unsealed(client, db, app)
+    calls: list[str] = []
+    for name in ("approval_snapshot", "seal_snapshot"):
+        original = getattr(db, name)
+        monkeypatch.setattr(db, name, lambda d, _n=name, _o=original: (calls.append(_n), _o(d))[1])
+    r = post(client, f"/v1/dossiers/{DOSSIER}/seal", {}, MANAGER)
+    assert r.status_code == 200 and calls == ["seal_snapshot"]
