@@ -76,7 +76,11 @@ def build(snapshot: dict[str, Any]) -> tuple[dict[str, Any], dict[str, str]]:
                 "amt": p["amt_cents"],
                 "purpose": p["purpose"],
             }
-            for p in snapshot["planned_spends"]
+            # CRYPTO_SPEC section 6 order, by code point: never the database's text collation.
+            for p in sorted(
+                snapshot["planned_spends"],
+                key=lambda p: (p["till"], p["amt_cents"], p["supplier"], p["purpose"]),
+            )
         ],
     }
     return payload, {obj["tx"]: h.hex() for obj, h in zip(leaves, hashes, strict=True)}

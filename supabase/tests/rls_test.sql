@@ -326,6 +326,18 @@ select tests.act_as(null, 'service_role'); set role service_role;
 insert into tests.ids select 'pk', (public.create_draft_dossier('10000000-0000-0000-0000-000000000001',
   '00000000-0000-0000-0000-00000000000a', '2026-12-01', '2026-12-31', repeat('e5', 32), 30,
   '{"score_bp": 9500}'::jsonb, tests.items('SPA')) ->> 'dossier_id')::uuid;
+-- One receipt per ledger row (receipts.item_id is unique), so approval_content()'s join can't
+-- repeat a row and the leaf count always equals the row count.
+reset role;
+insert into public.receipts (item_id, club_id, image_sha256, thumb_path)
+select id, club_id, repeat('9d', 32), 'receipts/t1.jpg' from public.dossier_items where tx = 'SPA0000001';
+select tests.denied($$insert into public.receipts (item_id, club_id, image_sha256, thumb_path)
+                    select id, club_id, repeat('9e', 32), 'receipts/t2.jpg'
+                    from public.dossier_items where tx = 'SPA0000001'$$,
+                    'a ledger row can''t have a second receipt');
+select tests.ok((select jsonb_array_length(public.approval_content(id) -> 'items') from tests.ids
+                 where label = 'pk') = 2, 'a row with a receipt still appears once in the payload');
+select tests.act_as(null, 'service_role'); set role service_role;
 select public.add_passkey('00000000-0000-0000-0000-00000000000a', 'cred-manager', 'cose-m', 0, '{internal}');
 select public.add_passkey('00000000-0000-0000-0000-00000000000b', 'cred-treasurer', 'cose-t', 5, null);
 select tests.denied($$select public.add_passkey('00000000-0000-0000-0000-00000000000c', 'cred-manager',
