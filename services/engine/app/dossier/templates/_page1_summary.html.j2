@@ -22,19 +22,19 @@
 
   <div class="section-title">01 CLUB ACCOUNT SUMMARY</div>
   <div class="summary-bar">
-    <div class="stat"><p class="label">CLUB SPENDING</p><h3 class="mono">KES {{ totals_cents.club_spending }}</h3></div>
+    <div class="stat"><p class="label">CLUB SPENDING</p><h3 class="mono">{{ totals.club_spending }}</h3></div>
     <div class="stat"><p class="label">TRANSACTIONS</p><h3 class="mono">{{ rows_disclosed }}</h3></div>
-    <div class="stat net"><p class="label">NET CLUB FUNDS</p><h3 class="mono">KES {{ totals_cents.net_funds }}</h3></div>
+    <div class="stat net"><p class="label">NET CLUB FUNDS</p><h3 class="mono">{{ totals.net_funds }}</h3></div>
   </div>
 
   <div class="section-title">02 INDEPENDENT VERIFICATION</div>
   <div class="verify">
     <div class="verify-left">
-      <h2>VERIFIED</h2>
+      <h2>SEALED</h2>
       <p class="small-note">RECORDS SEALED · {{ sealed_at_short }}</p>
       <div class="signatures">
-        <div class="sig"><p class="sig-name">{{ approvers.manager.name }}</p><p class="small-note">COACH · APPROVED</p></div>
-        <div class="sig"><p class="sig-name">{{ approvers.treasurer.name }}</p><p class="small-note">TREASURER · APPROVED</p></div>
+        <div class="sig"><p class="small-note">Manager · approved</p></div>
+        <div class="sig"><p class="small-note">Treasurer · approved</p></div>
       </div>
     </div>
     <div class="verify-right"><h2 class="score">{{ integrity.score }}/100</h2><p class="small-note">INTEGRITY SCORE</p></div>
@@ -54,9 +54,10 @@
     <thead><tr><th>ITEM / PURPOSE</th><th>SUPPLIER TILL OR PAYBILL</th><th class="right">AMOUNT</th></tr></thead>
     <tbody>
       {% for spend in planned_spends %}
-      <tr><td>{{ spend.purpose }}</td><td class="mono">{{ spend.till }}</td><td class="right mono">KES {{ spend.amount }}</td></tr>
+      <tr><td>{{ spend.purpose }}</td><td class="mono">{{ spend.till }}</td><td class="right mono">{{ spend.amount }}</td></tr>
+      {% else %}
+      <tr><td colspan="3" class="small-note">No planned spends listed.</td></tr>
       {% endfor %}
-      <tr class="total-row"><td colspan="2"></td><td class="right mono">KES {{ summary.requested }}</td></tr>
     </tbody>
   </table>
 
