@@ -1,0 +1,13 @@
+{#- SecurePitch sponsor dossier: base layout. Rendered by WeasyPrint.
+    Each page template extends this file and fills the "pages" block. -#}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ club.name }} · Sponsor Dossier · {{ period.label }}</title>
+  <link rel="stylesheet" href="dossier.css">
+</head>
+<body>
+  {% block pages %}{% endblock %}
+</body>
+</html>

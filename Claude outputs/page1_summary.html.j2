@@ -28,28 +28,27 @@
       <div class="kicker">Sponsor assurance statement</div>
       <h1>SecurePitch<br>Sponsor Dossier</h1>
       <p class="lede">A privacy-safe record showing that sponsor funds reached the club and were used for
-        football activity — without exposing the coach's personal M-Pesa account.</p>
+        football activities, without exposing the coach's personal M-Pesa account.</p>
     </div>
     <dl class="meta">
       <dt>Reporting period</dt><dd class="big">{{ period.label }}</dd>
       <dt>Dossier ID</dt><dd class="mono">{{ dossier.id }}</dd>
-      <dt>Prepared</dt><dd>{{ dossier.sealed_at }} · Nairobi</dd>
+      <dt>Prepared</dt><dd>{{ dossier.sealed_at }}</dd>
     </dl>
   </div>
 
   <h2><span class="no">01</span> Club account summary</h2>
   <div class="stats">
-    <div><span>Sponsor money in</span><b>{{ totals.money_in }}</b></div>
+    <div><span>Money in</span><b>{{ totals.money_in }}</b></div>
     <div><span>Club spending</span><b>{{ totals.club_spend }}</b></div>
     <div><span>Closing balance</span><b class="gold">{{ totals.closing_balance }}</b></div>
-    <div><span>Transactions</span><b>{{ totals.fixtures }}</b></div>
+    <div><span>Fixtures</span><b>{{ totals.fixtures }}</b></div>
   </div>
 
   <h2><span class="no">02</span> Independent verification</h2>
   <div class="verify">
     <div class="status">
       <div class="verified">✓ Verified</div>
-      <div class="sub" style="margin-bottom: 8pt;">Records sealed · {{ dossier.sealed_at }}</div>
       <div class="score"><b>{{ integrity.score }}</b>/100 <span>integrity score</span></div>
       <div class="approvers">
         {% for a in approvers %}
@@ -61,11 +60,9 @@
       </div>
     </div>
     <div class="qr">
-      <div class="qr-label">Public verification</div>
-      <div style="font-size: 7.5pt; color: var(--muted); margin-bottom: 4pt;">Scan to verify this dossier</div>
+      <div class="qr-label">Scan to verify this dossier</div>
       {{ qr_svg | safe }}
       <div class="qr-url">{{ verify_url }}</div>
-      <div style="font-size: 7pt; color: var(--muted); margin-top: 4pt;">No personal M-Pesa activity is displayed.</div>
     </div>
   </div>
 
@@ -79,31 +76,8 @@
       <tr><td colspan="3" class="empty">No planned spends listed for this period.</td></tr>
       {% endfor %}
     </tbody>
-    <tfoot>
-      <tr>
-        <td colspan="2" style="text-align: right;">Planned total</td>
-        <td class="num">
-          {{ planned_total }}
-          <span class="small-note">KES 13,500 confirmed player fares</span>
-        </td>
-      </tr>
-    </tfoot>
+    <tfoot><tr><td colspan="2">Planned total</td><td class="num">{{ planned_total }}</td></tr></tfoot>
   </table>
-
-  <div class="summary-bar">
-    <div>
-      <span>Covered by October balance</span>
-      <b>{{ totals.closing_balance }}</b>
-    </div>
-    <div>
-      <span>Requested from November tranche</span>
-      <b class="gold">KES 23,200</b>
-    </div>
-    <div>
-      <span>Paid to</span>
-      <b>Supplier tills only</b>
-    </div>
-  </div>
 
   <footer class="run-foot">
     <span class="mono">Dossier fingerprint · {{ fingerprint }}</span>

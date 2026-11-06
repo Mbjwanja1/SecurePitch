@@ -1,0 +1,64 @@
+<section class="page">
+  <div class="run-head">
+    <div class="crest"><div class="crest-box"><span class="crest-text">LION<br/>ESSES</span></div></div>
+    <div class="club-name">
+      <h2>{{ club.name }}</h2>
+      <p>SECUREPITCH SPONSOR DOSSIER · {{ period.label }}</p>
+    </div>
+    <div class="page-num">01 / 04</div>
+  </div>
+
+  <div class="title-row">
+    <p class="kicker">SPONSOR ASSURANCE STATEMENT</p>
+    <h1>SECUREPITCH SPONSOR DOSSIER</h1>
+    <p class="subtitle">A privacy-safe record showing that sponsor funds reached the club and were used for football activity—without exposing the coach's personal M-Pesa account.</p>
+  </div>
+
+  <div class="meta">
+    <div><p class="label">REPORTING PERIOD</p><h3>{{ period.label }}</h3></div>
+    <div><p class="label">DOSSIER ID</p><p class="mono">{{ dossier.id }}</p></div>
+    <div><p class="label">PREPARED</p><p class="mono">{{ sealed_at }} - Nairobi</p></div>
+  </div>
+
+  <div class="section-title">01 CLUB ACCOUNT SUMMARY</div>
+  <div class="summary-bar">
+    <div class="stat"><p class="label">CLUB SPENDING</p><h3 class="mono">KES {{ totals_cents.club_spending }}</h3></div>
+    <div class="stat"><p class="label">TRANSACTIONS</p><h3 class="mono">{{ rows_disclosed }}</h3></div>
+    <div class="stat net"><p class="label">NET CLUB FUNDS</p><h3 class="mono">KES {{ totals_cents.net_funds }}</h3></div>
+  </div>
+
+  <div class="section-title">02 INDEPENDENT VERIFICATION</div>
+  <div class="verify">
+    <div class="verify-left">
+      <h2>VERIFIED</h2>
+      <p class="small-note">RECORDS SEALED · {{ sealed_at_short }}</p>
+      <div class="signatures">
+        <div class="sig"><p class="sig-name">{{ approvers.manager.name }}</p><p class="small-note">COACH · APPROVED</p></div>
+        <div class="sig"><p class="sig-name">{{ approvers.treasurer.name }}</p><p class="small-note">TREASURER · APPROVED</p></div>
+      </div>
+    </div>
+    <div class="verify-right"><h2 class="score">{{ integrity.score }}/100</h2><p class="small-note">INTEGRITY SCORE</p></div>
+  </div>
+
+  <div class="qr-block">
+    <div class="qr-code">{{ qr_svg | safe }}</div>
+    <div class="qr-text">
+      <p class="label">PUBLIC VERIFICATION</p>
+      <p>Scan to verify this dossier at <span class="mono">{{ verify_base }}/{{ dossier.id }}</span></p>
+      <p class="small-note">No personal M-Pesa activity is displayed.</p>
+    </div>
+  </div>
+
+  <div class="section-title">03 PLANNED SPENDS - PAY SUPPLIERS DIRECTLY</div>
+  <table class="spends-table">
+    <thead><tr><th>ITEM / PURPOSE</th><th>SUPPLIER TILL OR PAYBILL</th><th class="right">AMOUNT</th></tr></thead>
+    <tbody>
+      {% for spend in planned_spends %}
+      <tr><td>{{ spend.purpose }}</td><td class="mono">{{ spend.till }}</td><td class="right mono">KES {{ spend.amount }}</td></tr>
+      {% endfor %}
+      <tr class="total-row"><td colspan="2"></td><td class="right mono">KES {{ summary.requested }}</td></tr>
+    </tbody>
+  </table>
+
+  <div class="run-foot"><p>Sealed by SecurePitch · verify at {{ verify_base }}/{{ dossier.id }}</p><p class="mono">{{ kid }}</p></div>
+</section>

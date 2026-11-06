@@ -1,0 +1,47 @@
+<section class="page">
+  <div class="run-head">
+    <div class="crest"><div class="crest-box"><span class="crest-text">LION<br/>ESSES</span></div></div>
+    <div class="club-name"><h2>{{ club.name }}</h2><p>SECUREPITCH SPONSOR DOSSIER · {{ period.label }}</p></div>
+    <div class="page-num">02 / 04</div>
+  </div>
+
+  <div class="title-row">
+    <h1>{{ period.label }} LEDGER</h1>
+    <p class="subtitle">Club-only entries extracted from approved records. Personal transfers, balances and unrelated M-Pesa activity remain private.</p>
+  </div>
+
+  <div class="evidence-key">
+    <span><span class="check">✓</span> Verified</span>
+    <span><span class="check">✓</span> Receipt attached</span>
+    <span><span class="check">✓</span> Player-confirmed</span>
+  </div>
+
+  <table class="ledger-table">
+    <thead><tr><th>LN</th><th>DATE</th><th>RECEIPT</th><th>CATEGORY</th><th>PAID TO</th><th class="right">AMOUNT</th><th class="right">EVIDENCE</th></tr></thead>
+    <tbody>
+      {% for row in ledger_rows %}
+      <tr>
+        <td class="mono">{{ "%02d" | format(loop.index) }}</td>
+        <td class="mono">{{ row.date }}</td>
+        <td class="mono">{{ row.receipt }}</td>
+        <td><span class="tag">{{ row.category }}</span></td>
+        <td>{{ row.paid_to }}</td>
+        <td class="right mono">{{ row.amount }}</td>
+        <td class="right">
+          {% if row.evidence == 'receipt' %}<span class="check">✓</span> Receipt attached
+          {% elif row.evidence == 'player' %}<span class="check">✓</span> Player-confirmed
+          {% else %}<span class="check">✓</span> Verified{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="coverage-grid">
+    <div class="coverage-box"><p class="label">RECEIPT COVERAGE</p><h3 class="mono">{{ coverage.receipts }}</h3><p class="small-note">Supplier transactions</p></div>
+    <div class="coverage-box"><p class="label">PLAYER CONFIRMATIONS</p><h3 class="mono">{{ coverage.players }}</h3><p class="small-note">Payment acknowledgements</p></div>
+    <div class="coverage-box"><p class="label">EXCEPTIONS</p><h3 class="mono highlight">{{ coverage.exceptions }}</h3><p class="small-note">Unresolved ledger lines</p></div>
+  </div>
+
+  <div class="run-foot"><p>Sealed by SecurePitch · verify at {{ verify_base }}/{{ dossier.id }}</p><p class="mono">{{ kid }}</p></div>
+</section>

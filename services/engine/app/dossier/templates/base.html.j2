@@ -2,21 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>{{ club.name }} · Sponsor Dossier · {{ period.label }}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=IBM+Plex+Mono&family=IBM+Plex+Sans&display=swap" rel="stylesheet">
+  <title>SecurePitch Dossier</title>
   <link rel="stylesheet" href="dossier.css">
-  <style>
-    /* Extra styles for the PDF layout */
-    body { background: #eee; padding: 20px; }
-    .page { background: #fff; padding: 40px; max-width: 800px; margin: 0 auto 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); position: relative; }
-    .run-foot { position: absolute; bottom: 20px; left: 40px; right: 40px; display: flex; justify-content: space-between; font-size: 7pt; color: var(--muted); border-top: 1pt solid var(--line); padding-top: 4pt; }
-    .summary-bar { display: flex; justify-content: space-between; background: var(--pitch-soft); border: 1pt solid var(--line); padding: 10pt 14pt; margin-top: 12pt; border-radius: 2pt; }
-    .summary-bar div { display: flex; flex-direction: column; }
-    .summary-bar span { font-size: 7.5pt; color: var(--muted); text-transform: uppercase; margin-bottom: 3pt; }
-    .summary-bar b { font-family: "Barlow Condensed", sans-serif; font-size: 14pt; color: var(--ink); }
-    .summary-bar b.gold { color: var(--seal); }
-    .small-note { font-size: 7.5pt; font-weight: normal; color: var(--seal); text-transform: none; display: block; margin-top: 2pt; }
-  </style>
 </head>
 <body>
   {% block pages %}{% endblock %}
