@@ -1,0 +1,87 @@
+/* Fonts */
+@font-face { font-family: "Barlow Condensed"; font-weight: 700; src: url("assets/fonts/BarlowCondensed-Bold.ttf"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400; src: url("assets/fonts/IBMPlexSans-Regular.ttf"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 700; src: url("assets/fonts/IBMPlexSans-Bold.ttf"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 400; src: url("assets/fonts/IBMPlexMono-Regular.ttf"); }
+
+/* Print Setup for A4 */
+@page { size: A4; margin: 14mm 14mm 18mm; }
+html, body { margin: 0; padding: 0; background: #fff; }
+.page { break-after: page; position: relative; min-height: 265mm; font-family: "IBM Plex Sans", sans-serif; color: #1a1a1a; }
+.page:last-child { break-after: auto; }
+
+/* Colors (from your Canva design) */
+:root {
+  --pitch: #0a3d2a;
+  --gold: #c4a052;
+  --grey: #f4f5f4;
+  --text: #1a1a1a;
+  --muted: #5a5a5a;
+  --line: #e0e0e0;
+}
+
+/* Layout & Typography */
+.mono { font-family: "IBM Plex Mono", monospace; }
+h1, h2, h3 { font-family: "Barlow Condensed", sans-serif; margin: 0; color: var(--pitch); }
+h1 { font-size: 36px; text-transform: uppercase; line-height: 1.1; margin-bottom: 8px;}
+h2 { font-size: 24px; text-transform: uppercase;}
+h3 { font-size: 20px; }
+p { font-size: 12px; line-height: 1.4; margin: 0 0 8px 0; }
+.label { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px;}
+.small-note { font-size: 9px; color: var(--muted); }
+.right { text-align: right; }
+.check { color: var(--pitch); font-weight: bold; }
+
+/* Header & Footer */
+.run-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pitch); padding-bottom: 8px; margin-bottom: 24px; }
+.crest-box { border: 2px solid var(--pitch); padding: 4px 8px; text-align: center; }
+.crest-text { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 14px; color: var(--pitch); line-height: 1; letter-spacing: 1px; }
+.club-name h2 { font-size: 16px; margin-bottom: 2px; }
+.club-name p { font-size: 9px; color: var(--muted); margin: 0; text-transform: uppercase; letter-spacing: 1px;}
+.page-num { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--pitch); font-weight: bold; }
+.run-foot { position: absolute; bottom: 0; left: 0; right: 0; border-top: 1px solid var(--line); padding-top: 8px; display: flex; justify-content: space-between; }
+.run-foot p { font-size: 8px; color: var(--muted); margin: 0; }
+
+/* Page 1 Specifics */
+.kicker { font-size: 10px; font-weight: bold; color: var(--gold); letter-spacing: 1px; margin-bottom: 4px;}
+.subtitle { font-size: 14px; color: var(--muted); margin-bottom: 24px; max-width: 80%; }
+.meta { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+.section-title { font-family: "Barlow Condensed", sans-serif; font-size: 14px; font-weight: 700; border-bottom: 1px solid var(--line); padding-bottom: 4px; margin-bottom: 16px; color: var(--pitch);}
+.summary-bar { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; background: var(--grey); padding: 16px; border-radius: 8px; margin-bottom: 32px; }
+.summary-bar h3 { font-size: 22px; margin-top: 4px; }
+.stat.net h3 { color: var(--gold); }
+
+.verify { display: flex; justify-content: space-between; align-items: center; background: var(--grey); padding: 24px; border-radius: 8px; margin-bottom: 32px; }
+.verify h2 { font-size: 32px; color: var(--pitch); margin-bottom: 4px; }
+.signatures { display: flex; gap: 48px; margin-top: 16px; }
+.sig-name { font-family: "Barlow Condensed", sans-serif; font-size: 18px; color: var(--pitch); border-bottom: 1px solid var(--pitch); padding-bottom: 2px; margin-bottom: 4px; }
+.score { font-size: 36px; color: var(--gold); margin: 0; }
+
+.qr-block { display: flex; align-items: center; gap: 24px; border: 1px solid var(--line); padding: 16px; border-radius: 8px; margin-bottom: 32px; }
+.qr-code { width: 80px; height: 80px; }
+.qr-text p { margin-bottom: 4px; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--line); font-size: 12px; }
+th { font-size: 10px; text-transform: uppercase; color: var(--muted); font-weight: bold; letter-spacing: 0.5px; }
+.total-row td { border-top: 2px solid var(--pitch); border-bottom: none; font-weight: bold; font-size: 14px; }
+
+/* Page 2 Specifics */
+.evidence-key { display: flex; gap: 24px; font-size: 10px; color: var(--muted); margin-bottom: 16px; }
+.tag { background: var(--grey); padding: 2px 8px; border-radius: 4px; font-size: 10px; text-transform: uppercase; font-weight: bold; }
+.coverage-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 32px; }
+.coverage-box { background: var(--grey); padding: 16px; border-radius: 8px; text-align: center; }
+.coverage-box h3 { font-size: 24px; color: var(--pitch); margin: 8px 0; }
+.coverage-box .highlight { color: var(--gold); }
+
+/* Page 3 Specifics */
+.squad-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+.player-card { border-bottom: 1px solid var(--line); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;}
+.player-name { font-family: "Barlow Condensed", sans-serif; font-size: 16px; color: var(--pitch); font-weight: bold; }
+.player-details { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+/* Page 4 Specifics */
+.receipt-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; margin-top: 24px; }
+.receipt-card { border: 1px solid var(--line); padding: 12px; border-radius: 8px; font-size: 10px; }
+.receipt-card img { width: 100%; height: 120px; object-fit: cover; background: #f9f9f9; border: 1px dashed #ccc; margin-bottom: 8px; }

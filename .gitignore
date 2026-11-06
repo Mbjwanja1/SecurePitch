@@ -63,3 +63,6 @@ desktop.ini
 !.vscode/settings.json
 !.vscode/extensions.json
 !.vscode/launch.json
+
+
+Claude outputs/
