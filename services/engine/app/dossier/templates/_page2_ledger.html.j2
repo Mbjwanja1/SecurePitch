@@ -1,6 +1,6 @@
 <section class="page">
   <div class="run-head">
-    <div class="crest"><div class="crest-box"><span class="crest-text">LION<br/>ESSES</span></div></div>
+    <div class="crest"><div class="crest-box"><span class="crest-text">{{ club.short }}</span></div></div>
     <div class="club-name"><h2>{{ club.name }}</h2><p>SECUREPITCH SPONSOR DOSSIER · {{ period.label }}</p></div>
     <div class="page-num">02 / 04</div>
   </div>
@@ -11,7 +11,7 @@
   </div>
 
   <div class="evidence-key">
-    <span><span class="check">✓</span> Verified</span>
+    <span><span class="check">✓</span> On statement</span>
     <span><span class="check">✓</span> Receipt attached</span>
     <span><span class="check">✓</span> Player-confirmed</span>
   </div>
@@ -28,9 +28,15 @@
         <td>{{ row.paid_to }}</td>
         <td class="right mono">{{ row.amount }}</td>
         <td class="right">
-          {% if row.evidence == 'receipt' %}<span class="check">✓</span> Receipt attached
-          {% elif row.evidence == 'player' %}<span class="check">✓</span> Player-confirmed
-          {% else %}<span class="check">✓</span> Verified{% endif %}
+          {% if row.evidence == 'statement' %}
+            <span class="check">✓</span> On statement
+          {% elif row.evidence == 'receipt' %}
+            <span class="check">✓</span> Receipt attached
+          {% elif row.evidence == 'player' %}
+            <span class="check">✓</span> Player-confirmed
+          {% else %}
+            <span class="small-note">No evidence yet</span>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}

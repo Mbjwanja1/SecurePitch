@@ -47,7 +47,7 @@ p { font-size: 12px; line-height: 1.4; margin: 0 0 8px 0; }
 .subtitle { font-size: 14px; color: var(--muted); margin-bottom: 24px; max-width: 80%; }
 .meta { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 32px; }
 .section-title { font-family: "Barlow Condensed", sans-serif; font-size: 14px; font-weight: 700; border-bottom: 1px solid var(--line); padding-bottom: 4px; margin-bottom: 16px; color: var(--pitch);}
-.summary-bar { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; background: var(--grey); padding: 16px; border-radius: 8px; margin-bottom: 32px; }
+.summary-bar { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; background: var(--grey); padding: 16px; border-radius: 8px; margin-bottom: 32px; }
 .summary-bar h3 { font-size: 22px; margin-top: 4px; }
 .stat.net h3 { color: var(--gold); }
 

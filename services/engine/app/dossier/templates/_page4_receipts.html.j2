@@ -1,6 +1,6 @@
 <section class="page">
   <div class="run-head">
-    <div class="crest"><div class="crest-box"><span class="crest-text">LION<br/>ESSES</span></div></div>
+    <div class="crest"><div class="crest-box"><span class="crest-text">{{ club.short }}</span></div></div>
     <div class="club-name"><h2>{{ club.name }}</h2><p>SECUREPITCH SPONSOR DOSSIER · {{ period.label }}</p></div>
     <div class="page-num">04 / 04</div>
   </div>
@@ -13,11 +13,17 @@
   <div class="receipt-grid">
     {% for r in receipts %}
     <div class="receipt-card">
-      <img src="{{ r.thumbnail_url }}" alt="Receipt for {{ r.supplier }}">
+      <img src="{{ r.thumbnail }}" alt="Receipt for {{ r.supplier }}">
       <p class="label">LEDGER LINE {{ r.line_number }}</p>
       <p style="font-weight: bold; margin-bottom: 4px;">{{ r.supplier }}</p>
       <p class="mono" style="margin-bottom: 4px;">{{ r.receipt_ref }}</p>
-      <p class="small-note"><span class="check">✓</span> {{ r.matched }}</p>
+      <p class="small-note">
+        {% if r.matched %}
+          <span class="check">✓</span> Matched
+        {% else %}
+          Not matched
+        {% endif %}
+      </p>
     </div>
     {% endfor %}
   </div>
