@@ -39,7 +39,7 @@ It creates the club if it doesn't exist, creates the account already confirmed, 
 
 | Path | What it is |
 |---|---|
-| `app/(auth)/login` | Email-code sign-in |
+| `app/(auth)/login` | Email and password sign-in |
 | `app/(app)/*` | Signed-in pages (`/dashboard`, later `/club`, `/statements`, `/dossiers`, `/settings`) |
 | `app/auth/signout` | Sign-out endpoint |
 | `middleware.ts`, `lib/supabase/` | Session refresh and route protection |
