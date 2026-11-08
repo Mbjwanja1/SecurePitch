@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { InstallApp } from "@/components/install-app";
+import { StatusBadge } from "@/components/status-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { formatPeriod } from "@/lib/tagging";
 
 export const metadata: Metadata = { title: "Dashboard · SecurePitch" };
 
@@ -27,14 +30,6 @@ type DossierRow = {
   period_from: string;
   period_to: string;
   clubs: { name: string } | null;
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: "Draft",
-  submitted: "Waiting for approval",
-  approved: "Approved",
-  sealed: "Sealed",
-  revoked: "Revoked",
 };
 
 export default async function DashboardPage() {
@@ -63,7 +58,7 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Your clubs</h1>
+        <h1 className="text-3xl font-bold sm:text-4xl">Your clubs</h1>
         {error ? (
           <p role="alert" className="text-sm text-destructive">
             Couldn&apos;t load your clubs. Refresh the page; if it keeps happening, tell the
@@ -113,7 +108,7 @@ export default async function DashboardPage() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-xl font-semibold tracking-tight">Dossiers</h2>
+        <h2 className="text-2xl font-bold">Dossiers</h2>
         {dossierError ? (
           <p role="alert" className="text-sm text-destructive">
             Couldn&apos;t load dossiers. Refresh the page.
@@ -130,27 +125,31 @@ export default async function DashboardPage() {
             </CardHeader>
           </Card>
         ) : (
-          <ul className="flex flex-col divide-y rounded-xl border">
+          <ul className="flex flex-col divide-y rounded-xl border bg-card">
             {dossiers.map((d) => (
               <li key={d.id}>
                 <Link
                   href={`/dossiers/${d.id}`}
-                  className="flex items-center justify-between gap-3 p-3 text-sm hover:bg-muted/50"
+                  className="flex min-h-11 items-center justify-between gap-3 p-3 text-sm hover:bg-muted/50"
                 >
-                  <span>
-                    <span className="font-medium">
-                      {d.period_from} to {d.period_to}
-                    </span>
+                  <span className="min-w-0">
+                    <span className="font-medium">{formatPeriod(d.period_from, d.period_to)}</span>
                     {memberships.length > 1 && d.clubs && (
                       <span className="text-muted-foreground"> · {d.clubs.name}</span>
                     )}
                   </span>
-                  <span className="text-muted-foreground">{STATUS_LABEL[d.status] ?? d.status}</span>
+                  <span className="shrink-0">
+                    <StatusBadge status={d.status} />
+                  </span>
                 </Link>
               </li>
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <InstallApp />
       </section>
     </div>
   );

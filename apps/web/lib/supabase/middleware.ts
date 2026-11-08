@@ -50,8 +50,8 @@ export async function updateSession(request: NextRequest) {
     return redirectKeepingCookies(response, url);
   };
 
-  // Send "/" straight to the right place instead of bouncing through /login.
-  if (path === "/") return go(user ? "/dashboard" : "/login");
+  // Signed-in users skip the landing page; everyone else sees what SecurePitch is first.
+  if (path === "/" && user) return go("/dashboard");
 
   const needsUser = PROTECTED_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
   if (needsUser && !user) return go("/login", `?next=${encodeURIComponent(path)}`);
