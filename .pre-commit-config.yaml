@@ -46,7 +46,9 @@ repos:
           Statements and rosters must not be committed. Real files belong in
           fixtures/private/ (git-ignored); synthetic test files go in fixtures/synthetic/.
         files: (?i)\.(pdf|csv|tsv|xlsx|xls|ods)$
-        exclude: ^fixtures/synthetic/
+        # The second path is one generated statement, marked SYNTHETIC on every page, that
+        # first-time visitors download from /guide.
+        exclude: ^(fixtures/synthetic/|apps/web/public/demo/synthetic-statement\.pdf$)
       # Receipt and roster photos are personal data, and gitleaks can't read images.
       # Only app icons, page images and dossier template assets may be committed.
       - id: block-photos
