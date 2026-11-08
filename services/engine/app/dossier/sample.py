@@ -27,8 +27,9 @@ def _item(tx, ts, amt, cat, branch, cp, fee=0, fixture=None, receipt=None) -> di
     }
 
 
-def snapshot(club_name: str = "Synthetic Lionesses FC") -> dict[str, Any]:
-    """An approval_snapshot() result, as the database returns it."""
+def snapshot(club_name: str = "Synthetic Lionesses FC", players: bool = True) -> dict[str, Any]:
+    """An approval_snapshot() result, as the database returns it. With players=False, every
+    squad payment went to someone not on the roster (the empty states of pages 3 and 4)."""
     items = [
         _item(
             "SJA1SPONS1",
@@ -67,7 +68,7 @@ def snapshot(club_name: str = "Synthetic Lionesses FC") -> dict[str, Any]:
                     50_000,
                     "transport",
                     "B",
-                    ("player", f"P{p:02d}"),
+                    ("player", f"P{p:02d}") if players else ("person", f"hmac:{n}{p}"),
                     fee=700,
                     fixture=fixture,
                 )

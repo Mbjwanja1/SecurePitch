@@ -15,6 +15,9 @@
     <div><p class="label">PAID TO PLAYERS</p><h3 class="mono">{{ squad.total }}</h3></div>
   </div>
 
+  {# The empty message sits outside the grid: as a grid item WeasyPrint gives it one narrow
+     column, a word per line. #}
+  {% if players %}
   <div class="squad-grid">
     {% for p in players %}
     <div class="player-card">
@@ -33,10 +36,11 @@
         </p>
       </div>
     </div>
-    {% else %}
-    <p class="small-note grid-note">No payments to registered players in this period.</p>
     {% endfor %}
   </div>
+  {% else %}
+  <p class="empty-note">No payments to registered players in this period.</p>
+  {% endif %}
 
   <div class="run-foot"><p>Sealed by SecurePitch · verify at {{ verify_base }}/{{ dossier.id }}</p><p class="mono">{{ kid }}</p></div>
 </section>

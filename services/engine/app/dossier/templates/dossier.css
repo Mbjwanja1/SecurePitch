@@ -78,7 +78,7 @@ p { font-size: 12px; line-height: 1.4; margin: 0 0 8px 0; }
 .qr-text p { margin-bottom: 4px; }
 .qr-text .mono { overflow-wrap: anywhere; font-size: 10px; }
 .sig .small-note { white-space: nowrap; }
-.grid-note { grid-column: 1 / -1; }
+.empty-note { font-size: 11px; color: var(--muted); margin-top: 24px; }
 
 /* Tables */
 table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
