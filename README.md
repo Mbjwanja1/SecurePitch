@@ -5,7 +5,7 @@
 Community-based football coaches run club money through their personal M-Pesa lines, and sponsors can't trust those informal records. SecurePitch turns a coach's M-Pesa statement into a **sealed sponsor dossier**: it processes the statement in memory, keeps only the club's transactions, has two club officials approve it with their own passkeys, and seals it with a signature anyone can check. The coach never has to expose their personal spending.
 
 > **Status:** built in an 11-day sprint, Thu 29 Oct → Sun 8 Nov 2026 (submission day).
-> **Live site:** https://secure-pitch.vercel.app (the sponsor verifier is at `/v/<dossier id>`).
+> **Live site:** https://securepitch.kamilimu.dev (the sponsor verifier is at `/v/<dossier id>`).
 
 ## How it works
 
@@ -116,7 +116,7 @@ pnpm lint         # ESLint
 pnpm typecheck    # TypeScript
 ```
 
-From the repository root: `uv run --directory services/engine pytest` runs the engine tests. On Windows, the 7 dossier PDF rendering tests skip, because they need Pango. They run in Docker and in CI, where `CI=1` makes them fail instead of skip.
+From the repository root: `uv run --directory services/engine pytest` runs the engine tests. On Windows, the dossier PDF rendering tests skip, because they need Pango. They run in Docker and in CI, where `CI=1` makes them fail instead of skip.
 
 ### If something goes wrong
 
