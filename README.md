@@ -5,13 +5,13 @@
 Community-based football coaches run club money through their personal M-Pesa lines, and sponsors can't trust those informal records. SecurePitch turns a coach's M-Pesa statement into a **sealed sponsor dossier**: it processes the statement in memory, keeps only the club's transactions, has two club officials approve it with their own passkeys, and seals it with a signature anyone can check. The coach never has to expose their personal spending.
 
 > **Status:** built in an 11-day sprint, Thu 29 Oct → Sun 8 Nov 2026 (submission day).
-> **Live site:** _the link is added here once the KamiLimu subdomain is set up._
+> **Live site:** https://secure-pitch.vercel.app (the sponsor verifier is at `/v/<dossier id>`).
 
 ## How it works
 
 1. **Upload.** The coach uploads their M-Pesa statement. The engine reads it in memory and never writes it to disk.
 2. **Match.** Payments are matched to the club roster using keyed hashes, so names and phone numbers are never published.
-3. **Check.** An integrity score checks the running balance and reconciles the totals against the statement's own summary. (Asking random players to confirm they were paid is on the roadmap.)
+3. **Check.** An integrity score checks the running balance, reconciles the totals against the statement's own summary, and looks for signs the PDF was edited. (Asking random players to confirm they were paid is on the roadmap.)
 4. **Approve.** The manager and the treasurer each sign the dossier with their own passkey.
 5. **Seal and verify.** The platform signs the result with an ECDSA key (an AWS KMS key in production, a development key until AWS is set up; the verifier says which). A sponsor opens the dossier's link or QR code and every signature is checked in their own browser.
 
@@ -89,9 +89,11 @@ The tunnel address changes every time the tunnel restarts. When it does, update 
 There is no public sign-up. A club admin creates each account and adds it to a club:
 
 ```powershell
-uv run tools/onboard_member.py --club "Nairobi City Inspectorate Lionesses" `
-    --email coach@example.com --name "Coach Eugene" --role manager
+uv run tools/onboard_member.py --club "Demo Lionesses (test)" `
+    --email you@example.com --name "Your Name" --role manager
 ```
+
+Copy the club name exactly. If no club has that name, the script creates a new one.
 
 Roles are `manager`, `treasurer` and `captain`. More detail, and how to reset a password, is in [`apps/web/README.md`](apps/web/README.md). If you sign in and see "You're not in a club yet", your account has not been added to a club.
 
@@ -99,11 +101,10 @@ Roles are `manager`, `treasurer` and `captain`. More detail, and how to reset a 
 
 1. **Sign in as the manager** at `/login`. Open **Manage roster** on the dashboard and add the players, or import a CSV.
 2. **Add a passkey** at `/settings/passkeys` (the manager and the treasurer each need one).
-3. **Upload a statement** with **Upload a statement** on the dashboard. For development, use the synthetic statement in `fixtures/synthetic` (ask Joy for its password if it is not written next to the file). Tag each club transaction and save the draft.
+3. **Upload a statement** with **Upload a statement** on the dashboard. For development, generate a synthetic statement with `uv run --project services/engine python tools/make_fake_statement.py`. It writes `fixtures/synthetic/statement_genuine-layout.pdf`, with the password `123456`. Add `--variant tampered-amount` for a statement whose integrity score drops. Tag each club transaction and save the draft.
 4. **Submit** the draft: the manager signs it with their passkey.
-5. **Approve** as the treasurer: sign in as the treasurer and sign with their passkey.
-6. **Seal** the approved dossier from its page.
-7. **Verify** at `/v/<dossier id>`. A sponsor sees the same page, without an account: the seal, both passkey signatures, and (once the sealed PDF is attached) a check that the PDF they were given is the one that was sealed.
+5. **Approve** as the treasurer: sign in as the treasurer and sign with their passkey. The dossier is sealed straight away. If sealing fails, a **Seal the dossier** button appears on its page to retry.
+6. **Verify** at `/v/<dossier id>`. A sponsor sees the same page, without an account: the seal and both passkey signatures. Download the sealed PDF from the dossier's page and give it to sponsors. Its QR code opens this page, which can also check that a PDF they were given is the one SecurePitch issued.
 
 ### Tests and checks
 
@@ -115,7 +116,7 @@ pnpm lint         # ESLint
 pnpm typecheck    # TypeScript
 ```
 
-From the repository root: `uv run --directory services/engine pytest` runs the engine tests.
+From the repository root: `uv run --directory services/engine pytest` runs the engine tests. On Windows, the 7 dossier PDF rendering tests skip, because they need Pango. They run in Docker and in CI, where `CI=1` makes them fail instead of skip.
 
 ### If something goes wrong
 
