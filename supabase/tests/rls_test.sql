@@ -272,12 +272,50 @@ reset role; select tests.act_as(null, 'service_role'); set role service_role;
 select tests.ok(jsonb_array_length(public.seal_snapshot('20000000-0000-0000-0000-000000000001')
                 -> 'signatures') = 2, 'the engine reads both stored passkey signatures to seal');
 select tests.ok((public.seal_dossier('20000000-0000-0000-0000-000000000001', tests.root1(),
-                 tests.seal_payload(tests.root1()), 'local-dev', 'sig',
-                 'dossiers/x.pdf', repeat('22', 32))).status = 'sealed',
+                 tests.seal_payload(tests.root1()), 'local-dev', 'sig', null, null)).status = 'sealed',
                 'the engine seals with the frozen root and the stored signatures');
 select tests.ok((select sealed_at from public.dossiers
                  where id = '20000000-0000-0000-0000-000000000001')
                 = '2026-11-06T10:00:00+03:00'::timestamptz, 'sealed_at is the signed one');
+\warn '--- sealed PDF'
+select tests.ok((select not public and file_size_limit = 10485760 from storage.buckets
+                 where id = 'dossier-pdfs'), 'the PDF bucket exists, is private and takes up to 10 MB');
+select tests.denied($$select public.attach_dossier_pdf('20000000-0000-0000-0000-000000000003',
+                    '10000000-0000-0000-0000-000000000002/20000000-0000-0000-0000-000000000003/' || repeat('33', 32) || '.pdf',
+                    repeat('33', 32))$$,
+                    'a draft dossier gets no PDF');
+select tests.denied($$select public.attach_dossier_pdf('20000000-0000-0000-0000-000000000001',
+                    'elsewhere/x.pdf', repeat('33', 32))$$,
+                    'the PDF must be at <club>/<dossier>/<sha256>.pdf');
+select tests.denied($$select public.attach_dossier_pdf('20000000-0000-0000-0000-000000000001',
+                    '10000000-0000-0000-0000-000000000001/20000000-0000-0000-0000-000000000001/' || repeat('AB', 32) || '.pdf',
+                    repeat('AB', 32))$$,
+                    'the PDF hash must be lowercase hex');
+select tests.denied($$update public.dossiers set pdf_path = 'x.pdf', pdf_sha256 = repeat('33', 32)
+                    where id = '20000000-0000-0000-0000-000000000001'$$,
+                    'a sealed dossier''s PDF can''t be set by a plain update');
+reset role; select tests.act_as('00000000-0000-0000-0000-00000000000a', 'authenticated');
+set role authenticated;
+select tests.denied($$select public.attach_dossier_pdf('20000000-0000-0000-0000-000000000001',
+                    '10000000-0000-0000-0000-000000000001/20000000-0000-0000-0000-000000000001/' || repeat('33', 32) || '.pdf',
+                    repeat('33', 32))$$,
+                    'browsers can''t attach a PDF, even the club manager');
+reset role; select tests.act_as(null, 'service_role'); set role service_role;
+select tests.ok((public.attach_dossier_pdf('20000000-0000-0000-0000-000000000001',
+                 '10000000-0000-0000-0000-000000000001/20000000-0000-0000-0000-000000000001/' || repeat('33', 32) || '.pdf',
+                 repeat('33', 32))).pdf_sha256 = repeat('33', 32),
+                'the engine attaches the sealed dossier''s PDF');
+select tests.denied($$select public.attach_dossier_pdf('20000000-0000-0000-0000-000000000001',
+                    '10000000-0000-0000-0000-000000000001/20000000-0000-0000-0000-000000000001/' || repeat('44', 32) || '.pdf',
+                    repeat('44', 32))$$,
+                    'a PDF is attached once and never replaced');
+select tests.ok((select status = 'sealed' and pdf_sha256 = repeat('33', 32) from public.dossiers
+                 where id = '20000000-0000-0000-0000-000000000001'),
+                'attaching the PDF leaves the dossier sealed and unchanged otherwise');
+reset role; select tests.act_as(null, 'anon'); set role anon;
+select tests.ok(public.public_dossier('20000000-0000-0000-0000-000000000001') ->> 'pdf_sha256'
+                = repeat('33', 32), 'the public verifier receives the PDF''s hash');
+reset role; select tests.act_as(null, 'service_role'); set role service_role;
 select tests.denied($$update public.dossiers set payload = '{}'::jsonb
                     where id = '20000000-0000-0000-0000-000000000001'$$,
                     'a sealed payload can''t be edited, even by the engine');
@@ -480,8 +518,11 @@ reset role; select tests.act_as(null, 'service_role'); set role service_role;
 
 \warn '--- audit log'
 select tests.rows($$select * from public.audit_log
-                    where dossier_id = '20000000-0000-0000-0000-000000000001'$$, 4,
-                  'submit, approve, seal and revoke were each logged');
+                    where dossier_id = '20000000-0000-0000-0000-000000000001'$$, 5,
+                  'submit, approve, seal, the PDF and revoke were each logged');
+select tests.rows($$select * from public.audit_log where action = 'dossier.pdf_attached'
+                    and dossier_id = '20000000-0000-0000-0000-000000000001'$$, 1,
+                  'attaching the PDF is logged once');
 select tests.denied('update public.audit_log set action = ''edited''',
                     'audit entries can''t be edited, even by the engine');
 select tests.denied('delete from public.audit_log', 'audit entries can''t be deleted');

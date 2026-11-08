@@ -337,7 +337,7 @@ Chris writes this up as `docs/CRYPTO_SPEC.md` on Day 2 and generates `spec/test-
 | Supabase     | Free                         | \$0                    | Postgres, Auth (email OTP), Storage                          | Chris       | Free projects pause after 7 days idle; open it daily and before the pitch                                    |
 | Docker host  | Already approved             | Already covered        | Python engine container, the same image locally and deployed | Chris       | Vercel must reach it over HTTPS; keep it always on, since a cold start mid-demo looks like a crash           |
 | AWS          | Pay as you go                | ≈ \$1–2 / month        | One KMS asymmetric key, ECC_NIST_P256, SIGN_VERIFY           | Chris       | Needs a card; set a \$5 budget alert; IAM user limited to `kms:Sign` and `kms:GetPublicKey` on that key only |
-| Domain       | .co.ke via a KENIC registrar | ≈ KES 1,000–2,000 / yr | verify.securepitch.co.ke                                     | Joy         | Optional; securepitch.vercel.app works for judging                                                           |
+| Domain       | .co.ke via a KENIC registrar | ≈ KES 1,000–2,000 / yr | verify.securepitch.co.ke                                     | Joy         | Optional; secure-pitch.vercel.app works for judging                                                           |
 | Figma, Canva | Free / Education             | \$0                    | Dossier design, deck                                         | Joy         | —                                                                                                            |
 
 **Nothing new to request.** Every row above is either on your approved resource list or a free tool. Two services from the earlier draft are dropped because they weren't requested: rate limiting uses a small Postgres table (`rate_limits`) instead of Upstash, and errors go to the container's and Vercel's own logs instead of Sentry. No SMS gateway is needed (section 03).
@@ -923,8 +923,8 @@ The repo already exists at Desktop\SecurePitch\SecurePitch with one commit. Run 
     NEXT_PUBLIC_SUPABASE_ANON_KEY=
     ENGINE_URL=
     ENGINE_INTERNAL_KEY=
-    WEBAUTHN_RP_ID=securepitch.vercel.app
-    WEBAUTHN_ORIGIN=https://securepitch.vercel.app
+    WEBAUTHN_RP_ID=secure-pitch.vercel.app
+    WEBAUTHN_ORIGIN=https://secure-pitch.vercel.app
 
     # services/engine
     ENGINE_INTERNAL_KEY=
@@ -937,6 +937,6 @@ The repo already exists at Desktop\SecurePitch\SecurePitch with one commit. Run 
     KMS_KEY_ID=alias/securepitch-seal
     KMS_KID=sp-2026-01
     LOCAL_SIGNING_KEY_PEM=    # only when SIGNER=local
-    PUBLIC_VERIFY_BASE=https://securepitch.vercel.app/v
+    PUBLIC_VERIFY_BASE=https://secure-pitch.vercel.app/v
 
 Prepared for Chris Waweru, Catherine Atieno and Joy Mbugua from "SecurePitch: System Architecture & 12-Day Build Sprint" and "Project Master Dossier: SecurePitch". Library choices assume current stable releases on Day 1; lock exact versions in the lockfiles.

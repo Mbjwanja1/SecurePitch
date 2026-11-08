@@ -13,15 +13,23 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # ---- runtime: no uv, no build tools, non-root, made read-only at run time -------------
 FROM python:3.12-slim AS runtime
+# Pango and HarfBuzz for WeasyPrint (the sealed dossier PDF). No system fonts: the dossier
+# embeds its own (app/dossier/templates/assets/fonts) and the renderer may load nothing else.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin engine
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
 COPY app ./app
 # Bytecode is compiled at build time (above), so Python never needs to write to disk.
 RUN python -m compileall -q app
+# XDG_CACHE_HOME: fontconfig's cache goes to RAM-backed /tmp, not the read-only disk.
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    XDG_CACHE_HOME=/tmp/cache
 USER engine
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \

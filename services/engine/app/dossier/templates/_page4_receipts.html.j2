@@ -2,18 +2,17 @@
   <div class="run-head">
     <div class="crest"><div class="crest-box"><span class="crest-text">{{ club.short }}</span></div></div>
     <div class="club-name"><h2>{{ club.name }}</h2><p>SECUREPITCH SPONSOR DOSSIER · {{ period.label }}</p></div>
-    <div class="page-num">04 / 04</div>
   </div>
 
   <div class="title-row">
     <h1>RECEIPT EVIDENCE</h1>
-    <p class="subtitle">Cropped evidence previews. Each attachment is sealed to its ledger line; open the verified dossier to inspect the full-resolution record.</p>
+    <p class="subtitle">{% if receipts %}Cropped evidence previews. Each attachment is sealed to its ledger line.{% else %}No receipt photos are attached to this dossier. Every ledger line comes from the M-Pesa statement itself.{% endif %}</p>
   </div>
 
   <div class="receipt-grid">
     {% for r in receipts %}
     <div class="receipt-card">
-      <img src="{{ r.thumbnail }}" alt="Receipt for {{ r.supplier }}">
+      {% if r.thumbnail %}<img src="{{ r.thumbnail }}" alt="Receipt for {{ r.supplier }}">{% endif %}
       <p class="label">LEDGER LINE {{ r.line_number }}</p>
       <p style="font-weight: bold; margin-bottom: 4px;">{{ r.supplier }}</p>
       <p class="mono" style="margin-bottom: 4px;">{{ r.receipt_ref }}</p>
@@ -28,10 +27,12 @@
     {% endfor %}
   </div>
 
+  {% if receipts %}
   <div class="evidence-privacy" style="margin-top: 32px; border-top: 1px solid var(--line); padding-top: 16px;">
     <p class="label">EVIDENCE PRIVACY NOTICE</p>
     <p class="small-note">Personal numbers and unrelated transaction details are redacted before sealing.</p>
   </div>
+  {% endif %}
 
   <div class="run-foot"><p>Sealed by SecurePitch · verify at {{ verify_base }}/{{ dossier.id }}</p><p class="mono">{{ kid }}</p></div>
 </section>

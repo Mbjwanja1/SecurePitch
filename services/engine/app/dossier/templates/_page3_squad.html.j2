@@ -2,18 +2,17 @@
   <div class="run-head">
     <div class="crest"><div class="crest-box"><span class="crest-text">{{ club.short }}</span></div></div>
     <div class="club-name"><h2>{{ club.name }}</h2><p>SECUREPITCH SPONSOR DOSSIER · {{ period.label }}</p></div>
-    <div class="page-num">03 / 04</div>
   </div>
 
   <div class="title-row">
     <p class="kicker">PLAYER PAYMENT CONFIRMATIONS</p>
     <h1>SQUAD AUDIT</h1>
-    <p class="subtitle">Matchday reimbursements are matched to private player attestations, then published here under pseudonyms. Sponsors see proof of payment—not identity.</p>
+    <p class="subtitle">Payments to players are matched to the club's registered squad, then published here under pseudonyms. Sponsors see proof of payment—not identity.</p>
   </div>
 
   <div class="meta">
-    <div><p class="label">AUDIT SCOPE</p><p class="mono">{{ squad.registered }} registered squad members · {{ squad.matchdays }} matchdays</p></div>
-    <div><p class="label">CONFIRMED REIMBURSEMENTS</p><h3 class="mono">{{ squad.total }}</h3></div>
+    <div><p class="label">AUDIT SCOPE</p><p class="mono">{{ squad.players }} players paid · {{ squad.matchdays }} matchdays</p></div>
+    <div><p class="label">PAID TO PLAYERS</p><h3 class="mono">{{ squad.total }}</h3></div>
   </div>
 
   <div class="squad-grid">
@@ -21,7 +20,7 @@
     <div class="player-card">
       <div>
         <p class="player-name">{{ p.pseudonym }}</p>
-        <p class="player-details">Matchday bus fare · {{ p.dates | join(" · ") }}</p>
+        <p class="player-details">{{ p.what }} · {{ p.dates | join(" · ") }}</p>
       </div>
       <div class="right">
         <p class="mono" style="font-size: 14px; font-weight: bold; color: var(--pitch);">{{ p.amount }}</p>
@@ -34,6 +33,8 @@
         </p>
       </div>
     </div>
+    {% else %}
+    <p class="small-note grid-note">No payments to registered players in this period.</p>
     {% endfor %}
   </div>
 
