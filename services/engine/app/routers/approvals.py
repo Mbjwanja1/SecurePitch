@@ -6,10 +6,11 @@ rule 7). Roles are checked here and again inside approve_dossier().
 
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -17,6 +18,7 @@ from app.approvals import passkeys, payload
 from app.approvals.passkeys import PasskeyError, RelyingParty
 from app.approvals.seal import SealError, seal
 from app.crypto.signer import Signer, public_jwk
+from app.dossier import render
 from app.security import require_internal_key
 from app.supabase import Supabase, SupabaseError
 
@@ -229,9 +231,13 @@ async def approval_verify(
         try:
             out |= await _seal(request, db, rp, dossier_id)
         except HTTPException as exc:
-            detail = exc.detail if isinstance(exc.detail, dict) else {"message": str(exc.detail)}
-            out["seal_error"] = detail.get("message", "Sealing failed")
+            out["seal_error"] = _message(exc, "Sealing failed")
     return out
+
+
+def _message(exc: HTTPException, fallback: str) -> str:
+    detail = exc.detail if isinstance(exc.detail, dict) else {"message": str(exc.detail)}
+    return detail.get("message", fallback)
 
 
 # Sealing --------------------------------------------------------------------------------------
@@ -270,7 +276,54 @@ async def _seal(
         raise HTTPException(422, {"code": "seal", "message": str(exc)}) from None
     except SupabaseError as exc:
         raise _db_error(exc) from None
-    return {"status": "sealed", "kid": sealed.kid, "sealed_at": sealed.payload["sealed_at"]}
+    out = {"status": "sealed", "kid": sealed.kid, "sealed_at": sealed.payload["sealed_at"]}
+    # The PDF comes after the seal, so a rendering problem can never block or undo a seal.
+    # If it fails, either approver can make it later with POST /pdf.
+    try:
+        out |= await _attach_pdf(request, db, dossier_id, snapshot)
+    except HTTPException as exc:
+        out["pdf_error"] = _message(exc, "The PDF couldn't be made")
+    return out
+
+
+async def _attach_pdf(
+    request: Request, db: Supabase, dossier_id: str, snapshot: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Render a sealed dossier's PDF, store it and record its SHA-256, once. Safe to retry.
+    `snapshot` is the ledger read the caller already made, if any."""
+    try:
+        record = await run_in_threadpool(db.sealed_record, dossier_id)
+        if record is None or record["status"] != "sealed":
+            raise HTTPException(
+                409, {"code": "not_sealed", "message": "Only a sealed dossier has a PDF"}
+            )
+        if record["pdf_sha256"]:
+            return {"pdf_sha256": record["pdf_sha256"]}
+        if snapshot is None:
+            snapshot = await run_in_threadpool(db.approval_snapshot, dossier_id)
+        context = render.build_context(
+            record["payload"], snapshot, request.app.state.settings.verify_base
+        )
+        pdf = await run_in_threadpool(render.render_pdf, context)
+        sha = hashlib.sha256(pdf).hexdigest()
+        path = f"{record['club_id']}/{dossier_id}/{sha}.pdf"
+        await run_in_threadpool(db.upload_pdf, path, pdf)
+        try:
+            await run_in_threadpool(
+                db.attach_dossier_pdf,
+                {"p_dossier": dossier_id, "p_pdf_path": path, "p_pdf_sha256": sha},
+            )
+        except SupabaseError as exc:
+            if exc.code != "23505":
+                raise
+            # Another request attached its PDF first; that one is the dossier's PDF.
+            record = await run_in_threadpool(db.sealed_record, dossier_id)
+            return {"pdf_sha256": record["pdf_sha256"]}
+    except render.RenderError as exc:
+        raise HTTPException(422, {"code": "pdf", "message": str(exc)}) from None
+    except SupabaseError as exc:
+        raise _db_error(exc) from None
+    return {"pdf_sha256": sha}
 
 
 @router.post("/dossiers/{dossier_id}/seal")
@@ -299,6 +352,63 @@ async def seal_now(
             409, {"code": "not_sealable", "message": "Only an approved dossier can be sealed"}
         )
     return await _seal(request, db, rp, dossier_id, snapshot)
+
+
+async def _member_role(db: Supabase, dossier_id: str, actor: str) -> tuple[dict[str, Any], str]:
+    if not UUID_RE.match(dossier_id):
+        raise HTTPException(400, {"code": "bad_id", "message": "The dossier ID must be a UUID"})
+    try:
+        record = await run_in_threadpool(db.sealed_record, dossier_id)
+    except SupabaseError as exc:
+        raise _db_error(exc) from None
+    role = record and await run_in_threadpool(db.role_of, record["club_id"], actor)
+    if not role:  # don't reveal that the dossier exists
+        raise HTTPException(404, {"code": "not_found", "message": "Dossier not found"})
+    return record, role
+
+
+@router.post("/dossiers/{dossier_id}/pdf")
+async def make_pdf(
+    dossier_id: str, request: Request, x_actor_id: str = Header(default="")
+) -> dict[str, Any]:
+    """Make a sealed dossier's PDF if it has none yet: a failed first attempt, or a dossier
+    sealed before PDFs existed. Returns the existing one's hash otherwise."""
+    db, _, _ = _deps(request)
+    _, role = await _member_role(db, dossier_id, _actor(x_actor_id))
+    if role not in ("manager", "treasurer"):
+        raise HTTPException(
+            403, {"code": "forbidden", "message": "Only the manager or treasurer can make the PDF"}
+        )
+    return await _attach_pdf(request, db, dossier_id)
+
+
+@router.get("/dossiers/{dossier_id}/pdf")
+async def download_pdf(
+    dossier_id: str, request: Request, x_actor_id: str = Header(default="")
+) -> Response:
+    """The sealed PDF, for any member of the club to pass on to sponsors. Checked against the
+    recorded SHA-256 first, so a file changed in storage is never handed out."""
+    db, _, _ = _deps(request)
+    record, _ = await _member_role(db, dossier_id, _actor(x_actor_id))
+    if not record["pdf_path"] or not record["pdf_sha256"]:
+        raise HTTPException(404, {"code": "no_pdf", "message": "This dossier has no PDF yet"})
+    try:
+        pdf = await run_in_threadpool(db.download_pdf, record["pdf_path"])
+    except SupabaseError as exc:
+        raise _db_error(exc) from None
+    if hashlib.sha256(pdf).hexdigest() != record["pdf_sha256"]:
+        raise HTTPException(
+            502, {"code": "pdf_mismatch", "message": "The stored PDF doesn't match its record"}
+        )
+    return Response(
+        pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="securepitch-dossier-{dossier_id}.pdf"',
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.get("/keys")

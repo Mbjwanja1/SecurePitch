@@ -90,12 +90,18 @@ export default async function DashboardPage() {
                     </CardDescription>
                   </CardHeader>
                   {m.role === "manager" && (
-                    <CardContent>
+                    <CardContent className="flex flex-wrap gap-2">
                       <Link
                         href={`/club/${m.club_id}/statements/new`}
                         className={buttonVariants({ size: "sm" })}
                       >
                         Upload a statement
+                      </Link>
+                      <Link
+                        href={`/club/${m.club_id}/roster`}
+                        className={buttonVariants({ size: "sm", variant: "outline" })}
+                      >
+                        Manage roster
                       </Link>
                     </CardContent>
                   )}

@@ -36,3 +36,15 @@ grant execute on all functions in schema auth to anon, authenticated, service_ro
 -- everything by default, which hid missing GRANTs that broke the real database, so every
 -- privilege must now come from the migrations themselves.
 grant usage on schema public to anon, authenticated, service_role;
+
+-- Supabase Storage keeps its buckets here. Only the columns our migrations write.
+create schema storage;
+create table storage.buckets (
+  id text primary key,
+  name text not null unique,
+  public boolean default false,
+  file_size_limit bigint,
+  allowed_mime_types text[]
+);
+grant usage on schema storage to service_role;
+grant select on storage.buckets to service_role;

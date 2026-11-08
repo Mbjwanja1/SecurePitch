@@ -89,6 +89,27 @@ async function request<T>(
   return json as T;
 }
 
+/** GET a file (the sealed dossier PDF) from the engine for the signed-in user. */
+export async function getEngineFile(path: string, actor: string): Promise<ArrayBuffer> {
+  const base = process.env.ENGINE_URL;
+  const key = process.env.ENGINE_INTERNAL_KEY;
+  if (!base || !key) throw new EngineError({ status: 503, message: GENERIC });
+  let response: Response;
+  try {
+    response = await fetch(new URL(path, base), {
+      headers: { "X-Internal-Key": key, "X-Actor-Id": actor },
+      cache: "no-store",
+      signal: AbortSignal.timeout(60_000),
+    });
+  } catch {
+    throw new EngineError({ status: 502, message: GENERIC });
+  }
+  if (!response.ok) {
+    throw new EngineError(engineFailure(response.status, await response.json().catch(() => null)));
+  }
+  return response.arrayBuffer();
+}
+
 // Passkey responses are a few KB; anything much bigger isn't one.
 export const MAX_JSON_BYTES = 64 * 1024;
 

@@ -5,9 +5,24 @@
 @font-face { font-family: "IBM Plex Mono"; font-weight: 400; src: url("assets/fonts/IBMPlexMono-Regular.ttf"); }
 
 /* Print Setup for A4 */
-@page { size: A4; margin: 14mm 14mm 18mm; }
+@page {
+  size: A4;
+  margin: 14mm 14mm 18mm;
+  /* The footer and page numbers live in the page margin, so they can't overlap the content and
+     stay right when a long ledger runs onto another sheet. */
+  @bottom-left { content: element(foot); width: 85%; vertical-align: top; }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    width: 15%;
+    vertical-align: top;
+    padding-top: 9px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 8px;
+    color: #5a5a5a;
+  }
+}
 html, body { margin: 0; padding: 0; background: #fff; }
-.page { break-after: page; position: relative; min-height: 265mm; font-family: "IBM Plex Sans", sans-serif; color: #1a1a1a; }
+.page { break-after: page; font-family: "IBM Plex Sans", sans-serif; color: #1a1a1a; }
 .page:last-child { break-after: auto; }
 
 /* Colors (from your Canva design) */
@@ -33,13 +48,12 @@ p { font-size: 12px; line-height: 1.4; margin: 0 0 8px 0; }
 .check { color: var(--pitch); font-weight: bold; }
 
 /* Header & Footer */
-.run-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--pitch); padding-bottom: 8px; margin-bottom: 24px; }
+.run-head { display: flex; justify-content: flex-start; gap: 16px; align-items: center; border-bottom: 2px solid var(--pitch); padding-bottom: 8px; margin-bottom: 24px; }
 .crest-box { border: 2px solid var(--pitch); padding: 4px 8px; text-align: center; }
 .crest-text { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 14px; color: var(--pitch); line-height: 1; letter-spacing: 1px; }
 .club-name h2 { font-size: 16px; margin-bottom: 2px; }
 .club-name p { font-size: 9px; color: var(--muted); margin: 0; text-transform: uppercase; letter-spacing: 1px;}
-.page-num { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--pitch); font-weight: bold; }
-.run-foot { position: absolute; bottom: 0; left: 0; right: 0; border-top: 1px solid var(--line); padding-top: 8px; display: flex; justify-content: space-between; }
+.run-foot { position: running(foot); border-top: 1px solid var(--line); padding-top: 8px; display: flex; justify-content: space-between; }
 .run-foot p { font-size: 8px; color: var(--muted); margin: 0; }
 
 /* Page 1 Specifics */
@@ -58,8 +72,13 @@ p { font-size: 12px; line-height: 1.4; margin: 0 0 8px 0; }
 .score { font-size: 36px; color: var(--gold); margin: 0; }
 
 .qr-block { display: flex; align-items: center; gap: 24px; border: 1px solid var(--line); padding: 16px; border-radius: 8px; margin-bottom: 32px; }
-.qr-code { width: 80px; height: 80px; }
+.qr-code { width: 80px; height: 80px; flex: none; }
+.qr-code svg { width: 80px; height: 80px; display: block; }
+.qr-text { flex: 1; min-width: 0; }
 .qr-text p { margin-bottom: 4px; }
+.qr-text .mono { overflow-wrap: anywhere; font-size: 10px; }
+.sig .small-note { white-space: nowrap; }
+.empty-note { font-size: 11px; color: var(--muted); margin-top: 24px; }
 
 /* Tables */
 table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }

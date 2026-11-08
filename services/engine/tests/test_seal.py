@@ -18,7 +18,9 @@ from app.approvals import payload
 from app.approvals.seal import approval_payload_of
 from app.config import parse_retired_keys
 from app.crypto.signer import LocalSigner, payload_digest, public_jwk, verify_digest
+from app.dossier import render
 from app.main import create_app
+from app.supabase import SupabaseError
 from tests.test_approvals import (
     CAPTAIN,
     DOSSIER,
@@ -33,6 +35,8 @@ from tests.test_approvals import (
     verify,
 )
 
+FAKE_PDF = b"%PDF-fake sealed dossier"
+
 
 def b64d(s: str) -> bytes:
     return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
@@ -44,6 +48,9 @@ class SealDB(ApprovalDB):
     def __init__(self) -> None:
         super().__init__()
         self.sealed: dict | None = None
+        self.pdf_path: str | None = None
+        self.pdf_sha256: str | None = None
+        self.files: dict[str, bytes] = {}
 
     def approve_dossier(self, p):
         result = super().approve_dossier(p)
@@ -69,10 +76,34 @@ class SealDB(ApprovalDB):
         self.sealed, self.status = p, "sealed"
         return {"status": "sealed"}
 
+    def sealed_record(self, dossier_id):
+        return {
+            "id": dossier_id,
+            "club_id": self.content["dossier"]["club_id"],
+            "status": self.status,
+            "payload": self.sealed and self.sealed["p_payload"],
+            "pdf_path": self.pdf_path,
+            "pdf_sha256": self.pdf_sha256,
+        }
+
+    def upload_pdf(self, path, pdf):
+        self.files[path] = pdf
+
+    def download_pdf(self, path):
+        return self.files[path]
+
+    def attach_dossier_pdf(self, p):
+        if self.pdf_sha256:
+            raise SupabaseError("this dossier already has its PDF", 409, "23505")
+        self.pdf_path, self.pdf_sha256 = p["p_pdf_path"], p["p_pdf_sha256"]
+        return {"status": "sealed"}
+
 
 @pytest.fixture
 def engine(monkeypatch):
     monkeypatch.setenv("ENGINE_INTERNAL_KEY", KEY)
+    # Real rendering is tested in test_dossier_pdf.py and needs Pango; sealing doesn't.
+    monkeypatch.setattr(render, "render_pdf", lambda context: FAKE_PDF)
     app = create_app()
     app.state.supabase = SealDB()
     app.state.signer = LocalSigner.generate("local-test")

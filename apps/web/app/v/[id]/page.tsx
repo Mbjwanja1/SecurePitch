@@ -9,6 +9,7 @@ import { CATEGORY_LABEL, type Category, formatKes, formatWhen } from "@/lib/tagg
 import { isDisplayable } from "@/lib/verify";
 
 import { VerifyPanel } from "./verify-panel";
+import { PdfCheck } from "./pdf-check";
 
 // Public: sponsors open this from the dossier's link or QR code, without an account. Dossier
 // links aren't listed anywhere, so keep them out of search engines too.
@@ -70,6 +71,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ id: str
       )}
 
       <VerifyPanel record={record} />
+      <PdfCheck expected={record.pdf_sha256} />
 
       <Card>
         <CardHeader>

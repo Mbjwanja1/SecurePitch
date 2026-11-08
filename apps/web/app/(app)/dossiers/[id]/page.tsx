@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CATEGORY_LABEL, type Category, counterpartyLabel, formatKes, formatWhen } from "@/lib/tagging";
 
 import { ApprovalPanel } from "./approval-panel";
+import { PdfPanel } from "./pdf-panel";
 import { SealPanel } from "./seal-panel";
 
 export const metadata: Metadata = { title: "Dossier · SecurePitch" };
@@ -32,6 +33,7 @@ type Dossier = {
   merkle_root: string | null;
   kid: string | null;
   sealed_at: string | null;
+  pdf_sha256: string | null;
   revoked_at: string | null;
   revoke_reason: string | null;
   clubs: { name: string } | null;
@@ -63,7 +65,7 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
     .from("dossiers")
     .select(
       "id, club_id, status, period_from, period_to, rows_total, integrity, merkle_root, kid, " +
-        "sealed_at, revoked_at, revoke_reason, clubs(name)",
+        "sealed_at, revoked_at, revoke_reason, pdf_sha256, clubs(name)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -194,6 +196,20 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
                 </div>
               )}
             </dl>
+            {dossier.pdf_sha256 ? (
+              <a
+                href={`/api/dossiers/${dossier.id}/pdf`}
+                download
+                className="self-start text-sm font-medium underline-offset-4 hover:underline"
+              >
+                Download the sealed PDF for sponsors
+              </a>
+            ) : (
+              dossier.status === "sealed" &&
+              (access?.role === "manager" || access?.role === "treasurer") && (
+                <PdfPanel dossierId={dossier.id} />
+              )
+            )}
             <Link
               href={`/v/${dossier.id}`}
               className="self-start text-sm font-medium underline-offset-4 hover:underline"

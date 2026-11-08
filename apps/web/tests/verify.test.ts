@@ -34,6 +34,7 @@ function record(changes: Partial<PublicRecord> = {}): PublicRecord {
     sealed_at: PAYLOAD.sealed_at,
     revoked_at: null,
     revoke_reason: null,
+    pdf_sha256: null,
     ...changes,
   };
 }
@@ -190,5 +191,19 @@ describe("damaged records", () => {
   it("accepts the genuine record as displayable", () => {
     expect(isDisplayable(record())).toBe(true);
     expect(isDisplayable(null)).toBe(false);
+  });
+});
+
+describe("the sealed PDF fingerprint", () => {
+  it("accepts a missing PDF and a real SHA-256", async () => {
+    expect((await verifyDossier(record(), KEYS, RP)).authentic).toBe(true);
+    const withPdf = record({ pdf_sha256: "ab".repeat(32) });
+    expect((await verifyDossier(withPdf, KEYS, RP)).authentic).toBe(true);
+  });
+
+  it("treats a malformed fingerprint as a damaged record", async () => {
+    const v = await verifyDossier(record({ pdf_sha256: "not-a-hash" }), KEYS, RP);
+    expect(v.authentic).toBe(false);
+    expect(v.record.ok).toBe(false);
   });
 });
