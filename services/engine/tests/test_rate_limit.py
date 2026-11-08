@@ -239,6 +239,18 @@ def test_a_corrupt_file_isnt_counted_as_a_wrong_password(engine) -> None:
     assert f"wrong:{MANAGER}" not in limiter._hits
 
 
+def test_a_missing_limiter_refuses_uploads_rather_than_allowing_them(engine, monkeypatch) -> None:
+    client, _ = engine
+    del client.app.state.upload_limiter
+
+    def must_not_run(*args):
+        raise AssertionError("parsed without a limiter")
+
+    monkeypatch.setattr("app.routers.clubs.parse_statement", must_not_run)
+    r = parse(client, b"%PDF-1.4")
+    assert r.status_code == 503 and r.json()["detail"]["code"] == "not_configured"
+
+
 def test_people_without_the_role_use_up_nothing(engine, pdf) -> None:
     client, limiter = engine
     assert parse(client, pdf, actor=TREASURER).status_code == 403

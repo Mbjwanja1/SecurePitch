@@ -82,7 +82,11 @@ async def _require_role(db: Supabase, club_id: str, actor: str, allowed: set[str
 
 def _admit_upload(request: Request, club_id: str, actor: str) -> UploadLimiter:
     """Count this upload or refuse it. After the role check, and before any parsing."""
-    limiter: UploadLimiter = request.app.state.upload_limiter
+    limiter: UploadLimiter | None = getattr(request.app.state, "upload_limiter", None)
+    if limiter is None:  # fail closed: a missing limiter must never mean "no limit"
+        raise HTTPException(
+            503, {"code": "not_configured", "message": "Uploads aren't available right now"}
+        )
     refusal = limiter.admit(actor, club_id)
     if refusal is not None:
         raise HTTPException(

@@ -4,7 +4,13 @@ import { NextResponse } from "next/server";
 // no NEXT_PUBLIC_ prefix, so they never reach the browser (docs/adr/0002, rule 7: the actor is
 // the signed-in user from the session, never from the request body).
 
-export type EngineFailure = { status: number; message: string; problems?: string[] };
+export type EngineFailure = {
+  status: number;
+  message: string;
+  problems?: string[];
+  /** Seconds, from the engine's Retry-After on a 429. */
+  retryAfter?: string;
+};
 
 export class EngineError extends Error {
   constructor(readonly failure: EngineFailure) {
@@ -37,6 +43,21 @@ export function engineFailure(status: number, body: unknown): EngineFailure {
     if (typeof d.message === "string") return { status, message: d.message };
   }
   return { status, message: "The statement couldn't be processed." };
+}
+
+/** The headers a route handler should send with this failure. */
+export function failureHeaders(failure: EngineFailure): Record<string, string> {
+  return failure.retryAfter ? { "Retry-After": failure.retryAfter } : {};
+}
+
+/** An engine error response as an EngineFailure, keeping a well-formed Retry-After on a 429. */
+async function failureFrom(response: Response): Promise<EngineFailure> {
+  const failure = engineFailure(response.status, await response.json().catch(() => null));
+  const retryAfter = response.headers.get("retry-after");
+  if (response.status === 429 && retryAfter && /^\d+$/.test(retryAfter)) {
+    failure.retryAfter = retryAfter;
+  }
+  return failure;
 }
 
 type Call = {
@@ -84,9 +105,8 @@ async function request<T>(
   } catch {
     throw new EngineError({ status: 502, message: GENERIC });
   }
-  const json: unknown = await response.json().catch(() => null);
-  if (!response.ok) throw new EngineError(engineFailure(response.status, json));
-  return json as T;
+  if (!response.ok) throw new EngineError(await failureFrom(response));
+  return (await response.json().catch(() => null)) as T;
 }
 
 /** GET a file (the sealed dossier PDF) from the engine for the signed-in user. */
@@ -105,7 +125,7 @@ export async function getEngineFile(path: string, actor: string): Promise<ArrayB
     throw new EngineError({ status: 502, message: GENERIC });
   }
   if (!response.ok) {
-    throw new EngineError(engineFailure(response.status, await response.json().catch(() => null)));
+    throw new EngineError(await failureFrom(response));
   }
   return response.arrayBuffer();
 }
@@ -139,7 +159,10 @@ export async function relayJson(path: string, actor: string, body: unknown): Pro
   } catch (err) {
     if (err instanceof EngineError) {
       const { status, message, problems } = err.failure;
-      return NextResponse.json({ error: message, problems }, { status });
+      return NextResponse.json(
+        { error: message, problems },
+        { status, headers: failureHeaders(err.failure) },
+      );
     }
     throw err;
   }

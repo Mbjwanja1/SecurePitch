@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { requireManager } from "@/lib/club-guard";
-import { callEngine, EngineError } from "@/lib/engine";
+import { callEngine, EngineError, failureHeaders } from "@/lib/engine";
 import { readStatementForm } from "@/lib/statement-upload";
 
 // Parse a statement for tagging. The rows go back to the coach's browser only; nothing is stored.
@@ -28,7 +28,10 @@ export async function POST(
     return NextResponse.json(parsed, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     if (err instanceof EngineError) {
-      return NextResponse.json({ error: err.failure.message }, { status: err.failure.status });
+      return NextResponse.json(
+        { error: err.failure.message },
+        { status: err.failure.status, headers: failureHeaders(err.failure) },
+      );
     }
     throw err;
   }
