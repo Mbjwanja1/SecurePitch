@@ -125,6 +125,9 @@ describe("engine errors shown to the coach", () => {
       engineFailure(422, { detail: { code: "wrong_password", message: "The statement password is wrong." } }),
     ).toEqual({ status: 422, message: "The statement password is wrong." });
     expect(
+      engineFailure(429, { detail: { code: "rate_limited", message: "Too many statement uploads. Try again in about 5 minutes." } }).message,
+    ).toBe("Too many statement uploads. Try again in about 5 minutes.");
+    expect(
       engineFailure(422, { detail: { code: "bad_tags", problems: ["SZZ9999999: not in this statement"] } }),
     ).toMatchObject({ problems: ["SZZ9999999: not in this statement"] });
   });

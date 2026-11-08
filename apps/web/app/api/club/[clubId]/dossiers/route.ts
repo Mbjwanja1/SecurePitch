@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { requireManager } from "@/lib/club-guard";
-import { callEngine, EngineError } from "@/lib/engine";
+import { callEngine, EngineError, failureHeaders } from "@/lib/engine";
 import { readStatementForm } from "@/lib/statement-upload";
 
 type Saved = { dossier_id: string; replaced_draft: boolean; items: number };
@@ -57,7 +57,10 @@ export async function POST(
   } catch (err) {
     if (err instanceof EngineError) {
       const { status, message, problems } = err.failure;
-      return NextResponse.json({ error: message, problems }, { status });
+      return NextResponse.json(
+        { error: message, problems },
+        { status, headers: failureHeaders(err.failure) },
+      );
     }
     throw err;
   }
