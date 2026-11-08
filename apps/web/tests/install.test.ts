@@ -22,6 +22,10 @@ describe("installPlatform", () => {
     expect(installPlatform(ua, touch)).toBe(expected);
   });
 
+  it("treats a browser with no maxTouchPoints as non-touch", () => {
+    expect(installPlatform(IPAD_AS_MAC, undefined)).toBe("desktop");
+  });
+
   it("has instructions for every platform", () => {
     for (const platform of ["in-app", "ios", "android", "desktop"] as const) {
       expect(INSTALL_STEPS[platform].steps.length).toBeGreaterThan(0);

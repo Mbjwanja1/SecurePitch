@@ -8,14 +8,13 @@ import { INSTALL_STEPS, type InstallPlatform, installPlatform } from "@/lib/inst
 
 type InstallPrompt = Event & { prompt: () => Promise<void> };
 
-const SITE = "https://securepitch.kamilimu.dev";
-
 /** Install instructions for the visitor's device. Shows nothing inside the installed app. */
 export function InstallApp() {
   const [platform, setPlatform] = useState<InstallPlatform | null>(null);
   const [installed, setInstalled] = useState(false);
   const [prompt, setPrompt] = useState<InstallPrompt | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   useEffect(() => {
     const standalone =
@@ -50,8 +49,13 @@ export function InstallApp() {
   }
 
   async function copyLink() {
-    await navigator.clipboard.writeText(SITE).catch(() => undefined);
-    setCopied(true);
+    // This page, wherever it's deployed. In-app browsers often block the clipboard, so say so.
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+    } catch {
+      setCopyFailed(true);
+    }
   }
 
   return (
@@ -88,6 +92,12 @@ export function InstallApp() {
           {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
           {copied ? "Link copied" : "Copy the link"}
         </Button>
+      )}
+      {copyFailed && (
+        <p className="text-sm [overflow-wrap:anywhere]">
+          Couldn&apos;t copy it here. Open this address in your browser:{" "}
+          <span className="font-mono">{window.location.href}</span>
+        </p>
       )}
     </div>
   );
