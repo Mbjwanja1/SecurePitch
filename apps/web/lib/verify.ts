@@ -46,6 +46,8 @@ export type PublicRecord = {
   sealed_at: string;
   revoked_at: string | null;
   revoke_reason: string | null;
+  /** SHA-256 of the issued PDF, or null until rendered. Stored beside the seal, not signed. */
+  pdf_sha256: string | null;
 };
 
 /** Where passkey signatures must come from: this web app's RP ID and origins. */
@@ -78,6 +80,8 @@ export function isDisplayable(record: unknown): record is PublicRecord {
   const p = record.payload;
   return (
     typeof record.id === "string" &&
+    (record.pdf_sha256 === null ||
+      (typeof record.pdf_sha256 === "string" && /^[0-9a-f]{64}$/.test(record.pdf_sha256))) &&
     (record.status === "sealed" || record.status === "revoked") &&
     typeof p.kid === "string" &&
     typeof p.sealed_at === "string" &&

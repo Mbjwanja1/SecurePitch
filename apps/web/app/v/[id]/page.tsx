@@ -71,7 +71,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ id: str
       )}
 
       <VerifyPanel record={record} />
-      <PdfCheck expected={(record as { pdf_sha256?: string | null }).pdf_sha256 ?? null} />
+      <PdfCheck expected={record.pdf_sha256} />
 
       <Card>
         <CardHeader>
