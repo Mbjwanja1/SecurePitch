@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { hashFile, sameHash } from "../lib/pdf-hash";
+import { hashFile, sameHash } from "@/lib/pdf-hash";
 
 // SHA-256 of the three bytes "abc" (a standard test value).
 const ABC = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
@@ -22,7 +22,13 @@ describe("sameHash", () => {
     expect(sameHash(ABC, ABC)).toBe(true);
   });
 
-  it("ignores case and spaces in the stored value", () => {
+  it("ignores case and spaces on either side", () => {
+    expect(sameHash(` ${ABC.toUpperCase()} `, ABC)).toBe(true);
     expect(sameHash(ABC, `  ${ABC.toUpperCase()} `)).toBe(true);
+  });
+
+  it("never matches a blank or malformed stored value", () => {
+    expect(sameHash("", "")).toBe(false);
+    expect(sameHash("abc", "abc")).toBe(false);
   });
 });
