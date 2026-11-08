@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { Brand } from "@/components/brand";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { UUID_RE } from "@/lib/club-guard";
 import { fingerprint } from "@/lib/passkey-client";
 import { createClient } from "@/lib/supabase/server";
-import { CATEGORY_LABEL, type Category, formatKes, formatWhen } from "@/lib/tagging";
+import { CATEGORY_LABEL, type Category, formatKes, formatPeriod, formatWhen } from "@/lib/tagging";
 import { isDisplayable } from "@/lib/verify";
 
 import { VerifyPanel } from "./verify-panel";
@@ -28,8 +29,8 @@ export default async function VerifyPage({ params }: { params: Promise<{ id: str
   if (!data) notFound();
   if (!isDisplayable(data)) {
     return (
-      <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8">
-        <p className="text-sm font-semibold tracking-tight">SecurePitch · dossier verification</p>
+      <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:py-8">
+        <Brand />
         <div role="alert" className="rounded-xl border border-destructive/50 bg-destructive/10 p-4">
           <p className="font-semibold text-destructive">Not authentic</p>
           <p className="text-sm">
@@ -48,12 +49,16 @@ export default async function VerifyPage({ params }: { params: Promise<{ id: str
   );
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8">
+    <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:py-8">
+      <div className="flex items-center justify-between gap-3">
+        <Brand />
+        <span className="text-xs text-muted-foreground">Dossier verification</span>
+      </div>
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold tracking-tight">SecurePitch · dossier verification</p>
-        <h1 className="text-2xl font-semibold tracking-tight">{p.club.name}</h1>
+        <h1 className="text-3xl leading-tight font-bold sm:text-4xl">{p.club.name}</h1>
         <p className="text-sm text-muted-foreground">
-          Club finances {p.period.from} to {p.period.to} · sealed {formatWhen(p.sealed_at)}
+          Club finances for {formatPeriod(p.period.from, p.period.to)} · sealed{" "}
+          {formatWhen(p.sealed_at)}
         </p>
       </div>
 
@@ -102,14 +107,14 @@ export default async function VerifyPage({ params }: { params: Promise<{ id: str
           </dl>
           <dl className="flex flex-col divide-y rounded-xl border">
             {totals.map(([category, cents]) => (
-              <div key={category} className="flex justify-between gap-3 p-3">
+              <div key={category} className="flex items-baseline justify-between gap-3 p-3">
                 <dt>
                   {CATEGORY_LABEL[category as Category] ?? category}
                   {category !== "income" && (
                     <span className="text-muted-foreground"> (with fees)</span>
                   )}
                 </dt>
-                <dd className="tabular-nums">{formatKes(cents)}</dd>
+                <dd className="shrink-0 font-medium tabular-nums">{formatKes(cents)}</dd>
               </div>
             ))}
           </dl>
@@ -119,11 +124,11 @@ export default async function VerifyPage({ params }: { params: Promise<{ id: str
               <ul className="flex flex-col divide-y rounded-xl border">
                 {p.planned_spends.map((s, i) => (
                   <li key={i} className="flex justify-between gap-3 p-3">
-                    <span>
+                    <span className="min-w-0">
                       {s.purpose} · {s.supplier}
                       <span className="text-muted-foreground"> · till {s.till}</span>
                     </span>
-                    <span className="tabular-nums">{formatKes(s.amt)}</span>
+                    <span className="shrink-0 tabular-nums">{formatKes(s.amt)}</span>
                   </li>
                 ))}
               </ul>

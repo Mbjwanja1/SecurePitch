@@ -1,26 +1,30 @@
+import { Download, ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { DossierProgress } from "@/components/dossier-progress";
+import { PageHeading } from "@/components/page-heading";
+import { StatusBadge } from "@/components/status-badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { roleIn, UUID_RE } from "@/lib/club-guard";
 import { fingerprint } from "@/lib/passkey-client";
 import { createClient } from "@/lib/supabase/server";
-import { CATEGORY_LABEL, type Category, counterpartyLabel, formatKes, formatWhen } from "@/lib/tagging";
+import {
+  CATEGORY_LABEL,
+  type Category,
+  counterpartyLabel,
+  formatKes,
+  formatPeriod,
+  formatWhen,
+} from "@/lib/tagging";
 
 import { ApprovalPanel } from "./approval-panel";
 import { PdfPanel } from "./pdf-panel";
 import { SealPanel } from "./seal-panel";
 
 export const metadata: Metadata = { title: "Dossier · SecurePitch" };
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: "Draft",
-  submitted: "Submitted for approval",
-  approved: "Approved",
-  sealed: "Sealed",
-  revoked: "Revoked",
-};
 
 type Dossier = {
   id: string;
@@ -102,195 +106,213 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
   const mySigningTurn = signer && access?.role === signer ? signer : null;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <Link href="/dashboard" className="text-sm text-muted-foreground hover:underline">
-          ← {dossier.clubs?.name ?? "Your clubs"}
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Dossier {dossier.period_from} to {dossier.period_to}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {STATUS_LABEL[dossier.status] ?? dossier.status}
-          {score !== undefined && ` · statement integrity ${(score / 100).toFixed(0)}%`}
-        </p>
-      </div>
+    <div data-wide className="flex flex-col gap-6">
+      <PageHeading
+        back={{ href: "/dashboard", label: dossier.clubs?.name ?? "Your clubs" }}
+        title={`${formatPeriod(dossier.period_from, dossier.period_to)} dossier`}
+        badge={<StatusBadge status={dossier.status} />}
+      >
+        {score !== undefined && `Statement integrity ${(score / 100).toFixed(0)}%`}
+      </PageHeading>
 
-      <Card>
-        <CardContent>
-          <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-            <div>
-              <dt className="text-muted-foreground">Club rows</dt>
-              <dd className="font-medium tabular-nums">{items.length}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Statement rows</dt>
-              <dd className="font-medium tabular-nums">{dossier.rows_total ?? "–"}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Club income</dt>
-              <dd className="font-medium tabular-nums">{formatKes(income)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Club spending (with fees)</dt>
-              <dd className="font-medium tabular-nums">{formatKes(spent)}</dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
+      <DossierProgress status={dossier.status} />
 
-      {dossier.status === "draft" && access?.role === "manager" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Check the draft</CardTitle>
-            <CardDescription>
-              This draft holds only the rows you tagged; the rest of the statement was not
-              stored. To change the tags, upload the statement again: saving replaces this
-              draft until you submit it.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link
-              href={`/club/${dossier.club_id}/statements/new`}
-              className="text-sm font-medium underline-offset-4 hover:underline"
-            >
-              Upload the statement again
-            </Link>
-          </CardContent>
-        </Card>
-      )}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        {/* What to do next comes first on a phone, and stays beside the ledger on a laptop. */}
+        <div className="flex min-w-0 flex-col gap-6 lg:col-start-2 lg:row-start-1">
+          {mySigningTurn && (
+            <ApprovalPanel
+              dossierId={dossier.id}
+              signingAs={mySigningTurn}
+              hasPasskey={(passkeyCount ?? 0) > 0}
+            />
+          )}
 
-      {(dossier.status === "sealed" || dossier.status === "revoked") && dossier.sealed_at && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{dossier.status === "revoked" ? "Sealed, then revoked" : "Sealed"}</CardTitle>
-            <CardDescription>
-              SecurePitch signed the whole dossier, including both passkey signatures, on{" "}
-              {formatWhen(dossier.sealed_at)}. Any change to a row, total or signature breaks the
-              seal.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-muted-foreground">Signing key</dt>
-                <dd className="font-medium">
-                  {dossier.kid}
-                  {dossier.kid?.startsWith("local-") && (
-                    <span className="text-muted-foreground"> (development key, not production-signed)</span>
-                  )}
-                </dd>
-              </div>
-              {dossier.merkle_root && (
-                <div>
-                  <dt className="text-muted-foreground">Ledger fingerprint</dt>
-                  <dd className="font-mono font-medium">{fingerprint(dossier.merkle_root)}</dd>
-                </div>
-              )}
-              {dossier.status === "revoked" && (
-                <div className="sm:col-span-2">
-                  <dt className="text-muted-foreground">Revoked</dt>
-                  <dd className="font-medium">
-                    {dossier.revoked_at && formatWhen(dossier.revoked_at)}: {dossier.revoke_reason}
-                  </dd>
-                </div>
-              )}
-            </dl>
-            {dossier.pdf_sha256 ? (
-              <a
-                href={`/api/dossiers/${dossier.id}/pdf`}
-                download
-                className="self-start text-sm font-medium underline-offset-4 hover:underline"
-              >
-                Download the sealed PDF for sponsors
-              </a>
-            ) : (
-              dossier.status === "sealed" &&
-              (access?.role === "manager" || access?.role === "treasurer") && (
-                <PdfPanel dossierId={dossier.id} />
-              )
+          {dossier.status === "approved" &&
+            (access?.role === "manager" || access?.role === "treasurer") && (
+              <SealPanel dossierId={dossier.id} />
             )}
-            <Link
-              href={`/v/${dossier.id}`}
-              className="self-start text-sm font-medium underline-offset-4 hover:underline"
-            >
-              Open the sponsor verification page
-            </Link>
-          </CardContent>
-        </Card>
-      )}
 
-      {dossier.status === "approved" &&
-        (access?.role === "manager" || access?.role === "treasurer") && (
-          <SealPanel dossierId={dossier.id} />
-        )}
+          {dossier.status === "draft" && access?.role === "manager" && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Check the draft</CardTitle>
+                <CardDescription>
+                  This draft holds only the rows you tagged; the rest of the statement was not
+                  stored. To change the tags, upload the statement again: saving replaces this
+                  draft until you submit it.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link
+                  href={`/club/${dossier.club_id}/statements/new`}
+                  className={buttonVariants({ variant: "outline" })}
+                >
+                  Upload the statement again
+                </Link>
+              </CardContent>
+            </Card>
+          )}
 
-      {mySigningTurn && (
-        <ApprovalPanel
-          dossierId={dossier.id}
-          signingAs={mySigningTurn}
-          hasPasskey={(passkeyCount ?? 0) > 0}
-        />
-      )}
-
-      {(approvals.length > 0 || signer) && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold tracking-tight">Signatures</h2>
-          <ul className="flex flex-col divide-y rounded-xl border text-sm">
-            {(["manager", "treasurer"] as const).map((role) => {
-              const a = approvals.find((x) => x.role === role);
-              return (
-                <li key={role} className="flex flex-wrap items-center justify-between gap-2 p-3">
-                  <span>
-                    <span className="font-medium">{role === "manager" ? "Manager" : "Treasurer"}</span>
-                    {a && <span className="text-muted-foreground"> · {names.get(a.user_id) ?? "member"}</span>}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {a
-                      ? `signed with a passkey ${formatWhen(a.created_at)} · ${fingerprint(a.challenge)}`
-                      : "not signed yet"}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold tracking-tight">Ledger</h2>
-        {error ? (
-          <p role="alert" className="text-sm text-destructive">
-            Couldn&apos;t load the ledger. Refresh the page.
-          </p>
-        ) : (
-          <ul className="flex flex-col divide-y rounded-xl border">
-            {items.map((i) => (
-              <li key={i.tx} className="flex items-start justify-between gap-3 p-3 text-sm">
-                <div className="min-w-0">
-                  <p className="font-medium">
-                    {CATEGORY_LABEL[i.category] ?? i.category} ·{" "}
-                    {counterpartyLabel(i.cp_type, i.cp_ref)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatWhen(i.ts)} · {i.tx}
-                    {i.fixture_code && ` · ${i.fixture_code}`}
-                  </p>
-                </div>
-                <div className="text-right tabular-nums">
-                  <p className={i.dir === "in" ? "text-emerald-700 dark:text-emerald-400" : ""}>
-                    {i.dir === "in" ? "+" : "−"}
-                    {formatKes(i.amt_cents)}
-                  </p>
-                  {i.fee_cents > 0 && (
-                    <p className="text-xs text-muted-foreground">fee {formatKes(i.fee_cents)}</p>
+          {(dossier.status === "sealed" || dossier.status === "revoked") && dossier.sealed_at && (
+            <Card className={dossier.status === "sealed" ? "border-t-4 border-seal" : undefined}>
+              <CardHeader>
+                <CardTitle>
+                  {dossier.status === "revoked" ? "Sealed, then revoked" : "Sealed"}
+                </CardTitle>
+                <CardDescription>
+                  SecurePitch signed the whole dossier, including both passkey signatures, on{" "}
+                  {formatWhen(dossier.sealed_at)}. Any change to a row, total or signature breaks
+                  the seal.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <dl className="flex flex-col gap-2 text-sm">
+                  <div>
+                    <dt className="text-muted-foreground">Signing key</dt>
+                    <dd className="font-medium">
+                      {dossier.kid}
+                      {dossier.kid?.startsWith("local-") && (
+                        <span className="font-normal text-muted-foreground">
+                          {" "}
+                          (development key, not production-signed)
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                  {dossier.merkle_root && (
+                    <div>
+                      <dt className="text-muted-foreground">Ledger fingerprint</dt>
+                      <dd className="font-mono font-medium">{fingerprint(dossier.merkle_root)}</dd>
+                    </div>
                   )}
+                  {dossier.status === "revoked" && (
+                    <div>
+                      <dt className="text-muted-foreground">Revoked</dt>
+                      <dd className="font-medium">
+                        {dossier.revoked_at && formatWhen(dossier.revoked_at)}:{" "}
+                        {dossier.revoke_reason}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+                <div className="flex flex-col gap-2">
+                  {dossier.pdf_sha256 ? (
+                    <a
+                      href={`/api/dossiers/${dossier.id}/pdf`}
+                      download
+                      className={buttonVariants()}
+                    >
+                      <Download aria-hidden />
+                      Download the sealed PDF
+                    </a>
+                  ) : (
+                    dossier.status === "sealed" &&
+                    (access?.role === "manager" || access?.role === "treasurer") && (
+                      <PdfPanel dossierId={dossier.id} />
+                    )
+                  )}
+                  <Link href={`/v/${dossier.id}`} className={buttonVariants({ variant: "outline" })}>
+                    <ExternalLink aria-hidden />
+                    Open the sponsor page
+                  </Link>
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardContent>
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
+                <div>
+                  <dt className="text-muted-foreground">Club rows</dt>
+                  <dd className="font-medium tabular-nums">{items.length}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Statement rows</dt>
+                  <dd className="font-medium tabular-nums">{dossier.rows_total ?? "–"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Club income</dt>
+                  <dd className="font-medium tabular-nums">{formatKes(income)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Spending, with fees</dt>
+                  <dd className="font-medium tabular-nums">{formatKes(spent)}</dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          {(approvals.length > 0 || signer) && (
+            <section className="flex flex-col gap-3">
+              <h2 className="text-2xl font-bold">Signatures</h2>
+              <ul className="flex flex-col divide-y rounded-xl border bg-card text-sm">
+                {(["manager", "treasurer"] as const).map((role) => {
+                  const a = approvals.find((x) => x.role === role);
+                  return (
+                    <li key={role} className="flex flex-col gap-0.5 p-3">
+                      <span>
+                        <span className="font-medium">
+                          {role === "manager" ? "Manager" : "Treasurer"}
+                        </span>
+                        {a && (
+                          <span className="text-muted-foreground">
+                            {" "}
+                            · {names.get(a.user_id) ?? "member"}
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {a
+                          ? `Signed with a passkey ${formatWhen(a.created_at)} · ${fingerprint(a.challenge)}`
+                          : "Not signed yet"}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+        </div>
+
+        <section className="flex min-w-0 flex-col gap-3 lg:col-start-1 lg:row-start-1">
+          <h2 className="text-2xl font-bold">Ledger</h2>
+          {error ? (
+            <p role="alert" className="text-sm text-destructive">
+              Couldn&apos;t load the ledger. Refresh the page.
+            </p>
+          ) : (
+            <ul className="flex flex-col divide-y rounded-xl border bg-card">
+              {items.map((i) => (
+                <li key={i.tx} className="flex items-start justify-between gap-3 p-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="font-medium">
+                      {CATEGORY_LABEL[i.category] ?? i.category} ·{" "}
+                      {counterpartyLabel(i.cp_type, i.cp_ref)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatWhen(i.ts)} · <span className="font-mono">{i.tx}</span>
+                      {i.fixture_code && (
+                        <span className="whitespace-nowrap"> · {i.fixture_code}</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right tabular-nums">
+                    <p className={i.dir === "in" ? "text-success" : ""}>
+                      {i.dir === "in" ? "+" : "−"}
+                      {formatKes(i.amt_cents)}
+                    </p>
+                    {i.fee_cents > 0 && (
+                      <p className="text-xs text-muted-foreground">fee {formatKes(i.fee_cents)}</p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

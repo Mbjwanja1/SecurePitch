@@ -66,7 +66,7 @@ export function PdfCheck({ expected }: { expected: string | null }) {
             <div aria-live="polite">
               {state.kind === "hashing" && <p>Checking the file…</p>}
               {state.kind === "match" && (
-                <div className="font-semibold text-emerald-700 dark:text-emerald-400">
+                <div className="font-semibold text-success">
                   <p>✓ This is the PDF SecurePitch issued for this dossier.</p>
                   <p className="mt-1 text-sm font-normal text-muted-foreground">
                     Rely on it only if the signatures above are verified.

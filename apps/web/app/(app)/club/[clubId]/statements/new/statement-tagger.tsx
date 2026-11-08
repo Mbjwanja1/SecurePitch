@@ -231,13 +231,18 @@ export function StatementTagger({ clubId }: { clubId: string }) {
         )}
       </section>
 
-      <Card className="sticky bottom-4">
+      <Button type="button" variant="ghost" onClick={startOver} disabled={busy} className="sm:hidden">
+        Use a different statement
+      </Button>
+
+      {/* Always in reach while tagging, so on a phone only the two numbers that change matter. */}
+      <Card size="sm" className="sticky bottom-[max(0.5rem,env(safe-area-inset-bottom))] shadow-lg">
         <CardContent className="flex flex-col gap-3">
           <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
             <Stat label="Club rows" value={String(summary.tagged)} />
-            <Stat label="Kept personal" value={String(summary.personal)} />
-            <Stat label="Club income" value={formatKes(summary.incomeCents)} />
-            <Stat label="Club spending (with fees)" value={formatKes(summary.spentCents)} />
+            <Stat label="Kept personal" value={String(summary.personal)} className="hidden sm:block" />
+            <Stat label="Club income" value={formatKes(summary.incomeCents)} className="hidden sm:block" />
+            <Stat label="Spending, with fees" value={formatKes(summary.spentCents)} />
           </dl>
           {error && (
             <div role="alert" className="text-sm text-destructive">
@@ -251,11 +256,17 @@ export function StatementTagger({ clubId }: { clubId: string }) {
               )}
             </div>
           )}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 *:max-sm:flex-1">
             <Button type="button" onClick={save} disabled={busy || summary.tagged === 0}>
               {busy ? "Saving…" : "Save draft dossier"}
             </Button>
-            <Button type="button" variant="ghost" onClick={startOver} disabled={busy}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={startOver}
+              disabled={busy}
+              className="max-sm:hidden"
+            >
               Use a different statement
             </Button>
           </div>
@@ -265,9 +276,9 @@ export function StatementTagger({ clubId }: { clubId: string }) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
-    <div>
+    <div className={className}>
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="font-medium tabular-nums">{value}</dd>
     </div>
@@ -294,7 +305,8 @@ function StatementSummary({ parsed }: { parsed: ParsedStatement }) {
         <ul className="flex flex-col gap-1 text-sm">
           {Object.entries(parsed.integrity.checks).map(([name, c]) => (
             <li key={name} className={c.passed ? "" : "text-destructive"}>
-              {c.passed ? "✓" : "✗"} {CHECK_LABEL[name] ?? name}
+              <span className={c.passed ? "text-success" : ""}>{c.passed ? "✓" : "✗"}</span>{" "}
+              {CHECK_LABEL[name] ?? name}
               {!c.passed && c.detail ? ` (${c.detail})` : ""}
             </li>
           ))}
@@ -372,7 +384,7 @@ function TransactionRow({
   return (
     <li className={`flex flex-col gap-2 p-3 sm:flex-row sm:items-center ${category ? "bg-muted/40" : ""}`}>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium" title={t.details}>
+        <p className="line-clamp-2 text-sm font-medium sm:truncate" title={t.details}>
           {t.details}
         </p>
         <p className="text-xs text-muted-foreground">
@@ -381,8 +393,8 @@ function TransactionRow({
         </p>
       </div>
       <div className="flex items-center justify-between gap-3 sm:justify-end">
-        <div className="text-right text-sm tabular-nums">
-          <p className={t.dir === "in" ? "text-emerald-700 dark:text-emerald-400" : ""}>
+        <div className="shrink-0 text-right text-sm tabular-nums">
+          <p className={t.dir === "in" ? "text-success" : ""}>
             {t.dir === "in" ? "+" : "−"}
             {formatKes(t.amount_cents)}
           </p>
@@ -397,7 +409,7 @@ function TransactionRow({
           id={id}
           value={category ?? ""}
           onChange={(e) => onChange((e.target.value || null) as Category | null)}
-          className="h-8 w-44 rounded-lg border border-input bg-background px-2 text-sm"
+          className="h-11 min-w-0 max-w-52 flex-1 rounded-lg border border-input bg-card px-2 sm:w-44 sm:flex-none lg:h-9"
         >
           <option value="">Personal</option>
           {categoriesFor(t.dir).map((c) => (

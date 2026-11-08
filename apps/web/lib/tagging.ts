@@ -119,6 +119,23 @@ export function formatKes(cents: number): string {
 }
 
 /** "2026-10-17T07:15:00+03:00" -> "17 Oct, 07:15", in Kenyan time whatever the viewer's zone. */
+/** "2026-10-01", "2026-10-31" -> "October 2026"; any other range -> "5 Oct – 2 Nov 2026". */
+export function formatPeriod(from: string, to: string): string {
+  const day = (iso: string, options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat("en-GB", { ...options, timeZone: "UTC" }).format(
+      new Date(`${iso}T00:00:00Z`),
+    );
+  const nextDay = new Date(`${to}T00:00:00Z`);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  if (from.slice(0, 7) === to.slice(0, 7) && from.endsWith("-01") && nextDay.getUTCDate() === 1) {
+    return day(from, { month: "long", year: "numeric" });
+  }
+  const short = { day: "numeric", month: "short" } as const;
+  return from.slice(0, 4) === to.slice(0, 4)
+    ? `${day(from, short)} – ${day(to, { ...short, year: "numeric" })}`
+    : `${day(from, { ...short, year: "numeric" })} – ${day(to, { ...short, year: "numeric" })}`;
+}
+
 export function formatWhen(iso: string): string {
   return new Intl.DateTimeFormat("en-KE", {
     timeZone: "Africa/Nairobi",

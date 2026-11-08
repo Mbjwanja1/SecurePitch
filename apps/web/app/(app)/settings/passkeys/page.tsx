@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { PageHeading } from "@/components/page-heading";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 
@@ -27,17 +27,11 @@ export default async function PasskeysPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <Link href="/dashboard" className="text-sm text-muted-foreground hover:underline">
-          ← Your clubs
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Passkeys</h1>
-        <p className="text-sm text-muted-foreground">
-          Managers and treasurers sign dossiers with a passkey: your phone or laptop&apos;s
-          fingerprint, face or PIN. Sponsors can check each signature themselves, so nobody,
-          including SecurePitch, can approve a dossier for you.
-        </p>
-      </div>
+      <PageHeading back={{ href: "/dashboard", label: "Your clubs" }} title="Passkeys">
+        Managers and treasurers sign dossiers with a passkey: your phone or laptop&apos;s
+        fingerprint, face or PIN. Sponsors can check each signature themselves, so nobody,
+        including SecurePitch, can approve a dossier for you.
+      </PageHeading>
 
       <Card>
         <CardHeader>
@@ -57,7 +51,7 @@ export default async function PasskeysPage() {
             passkeys.length > 0 && (
               <ul className="flex flex-col divide-y rounded-xl border text-sm">
                 {passkeys.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-3 p-3">
+                  <li key={p.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 p-3">
                     <span className="font-mono text-xs">…{p.id.slice(-8)}</span>
                     <span className="text-muted-foreground">
                       added{" "}
