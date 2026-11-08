@@ -15,6 +15,8 @@ import httpx
 # written to be shown to users ("this statement is already in a submitted dossier").
 OUR_FUNCTION_ERRORS = {"42501", "23505", "23514", "P0001", "P0002", "40001"}
 
+PDF_BUCKET = "dossier-pdfs"
+
 
 class SupabaseError(RuntimeError):
     def __init__(self, message: str, status: int = 0, code: str | None = None) -> None:
@@ -25,11 +27,15 @@ class SupabaseError(RuntimeError):
 
 class Supabase:
     def __init__(self, url: str, key: str, transport: httpx.BaseTransport | None = None) -> None:
+        # sb_secret_ keys need only apikey; legacy JWT keys also need Authorization.
+        headers = {"apikey": key, "Authorization": f"Bearer {key}"}
         self.http = httpx.Client(
-            base_url=url.rstrip("/") + "/rest/v1",
-            # sb_secret_ keys need only apikey; legacy JWT keys also need Authorization.
-            headers={"apikey": key, "Authorization": f"Bearer {key}"},
-            timeout=20,
+            base_url=url.rstrip("/") + "/rest/v1", headers=headers, timeout=20, transport=transport
+        )
+        self.storage = httpx.Client(
+            base_url=url.rstrip("/") + "/storage/v1",
+            headers=headers,
+            timeout=30,
             transport=transport,
         )
 
@@ -137,4 +143,41 @@ class Supabase:
 
     def seal_dossier(self, params: dict[str, Any]) -> dict[str, Any]:
         r = self._ok(self.http.post("/rpc/seal_dossier", json=params), "seal the dossier")
+        return r.json()
+
+    # The sealed PDF (supabase/migrations/…_dossier_pdfs.sql) ----------------------------------
+
+    def sealed_record(self, dossier_id: str) -> dict[str, Any] | None:
+        """What rendering and downloading the PDF need; None if there's no such dossier."""
+        r = self._ok(
+            self.http.get(
+                "/dossiers",
+                params={
+                    "select": "id,club_id,status,payload,pdf_path,pdf_sha256",
+                    "id": f"eq.{dossier_id}",
+                },
+            ),
+            "load the dossier",
+        )
+        rows = r.json()
+        return rows[0] if rows else None
+
+    def upload_pdf(self, path: str, pdf: bytes) -> None:
+        """Never overwrites: the path contains the PDF's hash, so an existing file is this one."""
+        r = self.storage.post(
+            f"/object/{PDF_BUCKET}/{path}",
+            content=pdf,
+            headers={"Content-Type": "application/pdf", "x-upsert": "false"},
+        )
+        if r.status_code in (400, 409) and "exist" in r.text.lower():
+            return  # an earlier attempt uploaded these exact bytes
+        self._ok(r, "store the dossier PDF")
+
+    def download_pdf(self, path: str) -> bytes:
+        return self._ok(self.storage.get(f"/object/{PDF_BUCKET}/{path}"), "load the PDF").content
+
+    def attach_dossier_pdf(self, params: dict[str, Any]) -> dict[str, Any]:
+        r = self._ok(
+            self.http.post("/rpc/attach_dossier_pdf", json=params), "record the dossier PDF"
+        )
         return r.json()

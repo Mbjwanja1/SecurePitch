@@ -26,6 +26,8 @@ class Settings:
     # Public keys of platform signing keys no longer in use. They stay published so dossiers
     # sealed with them still verify (CRYPTO_SPEC section 5).
     retired_keys: tuple[dict[str, str], ...] = ()
+    # Printed under the QR code of every sealed PDF, permanently: <verify_base>/<dossier id>.
+    verify_base: str = "http://localhost:3000/v"
 
     @property
     def is_dev(self) -> bool:
@@ -60,7 +62,21 @@ def parse_retired_keys(text: str) -> tuple[dict[str, str], ...]:
     return tuple(out)
 
 
+def verify_base_from(explicit: str, origins: tuple[str, ...]) -> str:
+    """PUBLIC_VERIFY_BASE, or the web app's first passkey origin + /v. The origin has to be right
+    already for approvals to work, so the QR code can't quietly point at a different site."""
+    base = explicit.strip() or (f"{origins[0]}/v" if origins else "")
+    if not re.match(r"^https?://[^/\s]+(/[^\s]*)?$", base):
+        raise ValueError(f"PUBLIC_VERIFY_BASE must be an http(s) URL, not {base!r}")
+    return base.rstrip("/")
+
+
 def load_settings() -> Settings:
+    origins = tuple(
+        o.strip()
+        for o in os.environ.get("WEBAUTHN_ORIGINS", "http://localhost:3000").split(",")
+        if o.strip()
+    )
     return Settings(
         env=os.environ.get("ENGINE_ENV", "prod"),
         internal_key=os.environ.get("ENGINE_INTERNAL_KEY", ""),
@@ -69,10 +85,7 @@ def load_settings() -> Settings:
         supabase_key=os.environ.get("SUPABASE_SERVICE_ROLE_KEY", ""),
         roster_pepper=os.environ.get("ROSTER_PEPPER", ""),
         webauthn_rp_id=os.environ.get("WEBAUTHN_RP_ID", "localhost"),
-        webauthn_origins=tuple(
-            o.strip()
-            for o in os.environ.get("WEBAUTHN_ORIGINS", "http://localhost:3000").split(",")
-            if o.strip()
-        ),
+        webauthn_origins=origins,
         retired_keys=parse_retired_keys(os.environ.get("RETIRED_PUBLIC_KEYS", "")),
+        verify_base=verify_base_from(os.environ.get("PUBLIC_VERIFY_BASE", ""), origins),
     )

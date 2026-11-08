@@ -112,6 +112,24 @@ Once both approvers have signed (section 6), the engine seals the dossier. The s
 - Before signing, the engine re-verifies both assertions against the challenge rebuilt from the database, and verifies its own signature after. `seal_dossier()` refuses a seal unless the root equals the Merkle root over the leaf hashes frozen when the manager signed, recomputed in SQL, and the approvals are exactly the stored ones.
 - The `sealed` test vector is a sealed payload produced by the real sealing code, with public test passkeys, and its platform signature.
 
+### The sealed PDF
+
+After sealing, the engine renders the PDF from the sealed payload and the dossier's rows, stores it in a private bucket at `<club>/<dossier>/<sha256>.pdf` and records its path and SHA-256 with `attach_dossier_pdf()`, once.
+
+- **`pdf_sha256` is not signed.** The PDF contains the seal and its QR code, so its hash can't be signed into it. It is stored beside the seal and returned by `public_dossier()`.
+- What a match on the verifier page proves: *this is the exact PDF SecurePitch issued for this dossier*. It says nothing about the signatures on its own; the signature checks on the same page do that. Someone able to rewrite the database could change the hash without breaking any signature.
+- The rows must rebuild the signed approval payload exactly before anything is rendered, so the PDF can't show a row, amount or name the signatures don't cover.
+- A rendering failure never blocks or undoes a seal. The dossier stays sealed with no PDF, and the manager or treasurer can make it later.
+
+### The sealed PDF
+
+After sealing, the engine renders the PDF from the sealed payload and the dossier's rows, stores it in a private bucket at `<club>/<dossier>/<sha256>.pdf` and records its path and SHA-256 with `attach_dossier_pdf()`, once.
+
+- **`pdf_sha256` is not signed.** The PDF contains the seal and its QR code, so its hash can't be signed into it. It is stored beside the seal and returned by `public_dossier()`.
+- What a match on the verifier page proves: *this is the exact PDF SecurePitch issued for this dossier*. It says nothing about the signatures on its own; the signature checks on the same page do that. Someone able to rewrite the database could change the hash without breaking any signature.
+- The rows must rebuild the signed approval payload exactly before anything is rendered, so the PDF can't show a row, amount or name the signatures don't cover.
+- A rendering failure never blocks or undoes a seal. The dossier stays sealed with no PDF, and the manager or treasurer can make it later.
+
 ### Signer implementations
 
 | `SIGNER` | Key lives | Use |
