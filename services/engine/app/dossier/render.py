@@ -85,14 +85,14 @@ def club_short(name: str) -> str:
 
 def _paid_to(item: dict[str, Any]) -> str:
     """Never a person's name: players by pseudonym, businesses by their public number."""
-    t, ref = item["cp_type"], item["cp_ref"]
+    t, ref, incoming = item["cp_type"], item["cp_ref"], item["dir"] == "in"
     if t == "player":
         who = ref
     elif t in ("till", "paybill"):
         who = f"{t.capitalize()} {ref}"
     else:
-        who = "Private individual"
-    return f"From {who}" if item["dir"] == "in" else who
+        who = "an individual" if incoming else "Private individual"
+    return f"From {who}" if incoming else who
 
 
 # The render context ---------------------------------------------------------------------------

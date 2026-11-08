@@ -88,6 +88,23 @@ def test_income_says_where_it_came_from() -> None:
     assert context()["ledger_rows"][0]["paid_to"] == "From Paybill 400200"
 
 
+@pytest.mark.parametrize(
+    ("direction", "text"), [("in", "From an individual"), ("out", "Private individual")]
+)
+def test_individuals_read_naturally_both_ways(direction, text) -> None:
+    row = {"cp_type": "person", "cp_ref": "hmac:x", "dir": direction}
+    assert render._paid_to(row) == text
+
+
+def test_no_matched_players_shows_one_message_not_an_empty_grid() -> None:
+    c = context(sample.snapshot(players=False))
+    assert c["players"] == [] and c["squad"]["players"] == 0
+    assert c["coverage"]["exceptions"] == "19"  # 18 unmatched fares and the meal
+    html = render.render_html(c)
+    assert "No payments to registered players in this period." in html
+    assert 'class="squad-grid"' not in html
+
+
 def test_only_what_exists_is_claimed() -> None:
     c = context()
     assert {r["evidence"] for r in c["ledger_rows"]} == {"statement", "receipt"}
@@ -168,6 +185,20 @@ def test_renders_a4_with_the_embedded_fonts() -> None:
             for f in page.Resources["/Font"].as_dict().values()
         }
     assert any("Plex" in f for f in fonts) and any("Barlow" in f for f in fonts)
+
+
+def test_the_empty_squad_message_is_one_line_in_the_pdf() -> None:
+    # As a grid item it rendered a word per line (seen on the live demo dossier).
+    needs_pango()
+    import pypdfium2
+
+    pdf = pypdfium2.PdfDocument(render.render_pdf(context(sample.snapshot(players=False))))
+    lines = [
+        line.strip()
+        for i in range(len(pdf))
+        for line in pdf[i].get_textpage().get_text_range().splitlines()
+    ]
+    assert "No payments to registered players in this period." in lines
 
 
 def test_a_club_name_with_html_renders_safely() -> None:
