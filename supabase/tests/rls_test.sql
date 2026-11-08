@@ -312,6 +312,10 @@ select tests.denied($$select public.attach_dossier_pdf('20000000-0000-0000-0000-
 select tests.ok((select status = 'sealed' and pdf_sha256 = repeat('33', 32) from public.dossiers
                  where id = '20000000-0000-0000-0000-000000000001'),
                 'attaching the PDF leaves the dossier sealed and unchanged otherwise');
+reset role; select tests.act_as(null, 'anon'); set role anon;
+select tests.ok(public.public_dossier('20000000-0000-0000-0000-000000000001') ->> 'pdf_sha256'
+                = repeat('33', 32), 'the public verifier receives the PDF''s hash');
+reset role; select tests.act_as(null, 'service_role'); set role service_role;
 select tests.denied($$update public.dossiers set payload = '{}'::jsonb
                     where id = '20000000-0000-0000-0000-000000000001'$$,
                     'a sealed payload can''t be edited, even by the engine');

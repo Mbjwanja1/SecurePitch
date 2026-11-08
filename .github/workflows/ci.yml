@@ -40,8 +40,11 @@ jobs:
           echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum --check --strict
           tar -xzf gitleaks.tar.gz -C "$RUNNER_TEMP" gitleaks
           rm gitleaks.tar.gz
+      # Every commit reachable from what's being tested (main plus this branch). Without
+      # --log-opts gitleaks scans all fetched refs, so one unfixed branch failed every PR.
+      # Each branch is still scanned in full by its own run.
       - name: Scan full git history for secrets and phone numbers
-        run: '"$RUNNER_TEMP/gitleaks" git . --config .gitleaks.toml --redact --verbose'
+        run: '"$RUNNER_TEMP/gitleaks" git . --config .gitleaks.toml --redact --verbose --log-opts=HEAD'
 
   # Applies every migration to a throwaway Postgres and proves the row-level security and
   # dossier-lifecycle rules by acting as each kind of user (supabase/tests/rls_test.sql).
@@ -78,10 +81,6 @@ jobs:
       - if: steps.present.outputs.yes == 'true'
         name: Install Pango for the dossier PDF tests
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0
-      # WeasyPrint needs Pango. The PDF tests fail rather than skip when CI is set.
-      - if: steps.present.outputs.yes == 'true'
-        name: Install Pango for the dossier PDF tests
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0
       - if: steps.present.outputs.yes == 'true'
         run: uv run pytest -q
       - if: steps.present.outputs.yes == 'true'
@@ -110,8 +109,6 @@ jobs:
           if docker exec engine-ci python -c "open('/app/probe', 'w')" 2>/dev/null; then
             echo "Wrote a file to the container's disk; it must be read-only"; exit 1
           fi
-          # The sealed PDF has to render inside the locked-down container, not just on the runner.
-          docker exec engine-ci python -m app.dossier.render || { docker logs engine-ci; exit 1; }
           # The sealed PDF has to render inside the locked-down container, not just on the runner.
           docker exec engine-ci python -m app.dossier.render || { docker logs engine-ci; exit 1; }
           docker rm -f engine-ci
