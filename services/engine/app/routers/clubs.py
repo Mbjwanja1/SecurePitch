@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.config import MAX_STATEMENT_BYTES
 from app.dossiers import Tag, TagError, build_items
 from app.ingest.parse import StatementError, parse_statement
+from app.ratelimit import UploadLimiter
 from app.roster.keys import (
     InvalidPhone,
     club_key,
@@ -77,6 +78,19 @@ async def _require_role(db: Supabase, club_id: str, actor: str, allowed: set[str
             403, {"code": "forbidden", "message": "You don't have the right role in this club"}
         )
     return role
+
+
+def _admit_upload(request: Request, club_id: str, actor: str) -> UploadLimiter:
+    """Count this upload or refuse it. After the role check, and before any parsing."""
+    limiter: UploadLimiter = request.app.state.upload_limiter
+    refusal = limiter.admit(actor, club_id)
+    if refusal is not None:
+        raise HTTPException(
+            429,
+            {"code": "rate_limited", "message": refusal.message},
+            headers={"Retry-After": str(refusal.retry_after)},
+        )
+    return limiter
 
 
 @router.post("/roster")
@@ -140,6 +154,7 @@ async def parse_for_club(
 ) -> dict[str, Any]:
     db, pepper = _deps(request)
     await _require_role(db, club_id, x_actor_id, {"manager"})
+    limiter = _admit_upload(request, club_id, x_actor_id)
     if request.headers.get("content-type", "").split(";")[0].strip().lower() != "application/pdf":
         raise HTTPException(415, "Send the PDF as application/pdf")
     body = await request.body()
@@ -147,7 +162,7 @@ async def parse_for_club(
         raise HTTPException(400, "The request body is empty")
     try:
         parsed, players, fixtures, matches, batches = await _parse_and_match(
-            db, pepper, club_id, body, x_statement_password
+            db, pepper, club_id, body, x_statement_password, limiter, x_actor_id
         )
     finally:
         del body
@@ -171,11 +186,21 @@ async def parse_for_club(
     return result
 
 
-async def _parse_and_match(db: Supabase, pepper: bytes, club_id: str, pdf: bytes, password: str):
+async def _parse_and_match(
+    db: Supabase,
+    pepper: bytes,
+    club_id: str,
+    pdf: bytes,
+    password: str,
+    limiter: UploadLimiter,
+    actor: str,
+):
     """Parse the statement, load the club's roster and fixtures, match and find batches."""
     try:
         parsed = await run_in_threadpool(parse_statement, pdf, password)
     except StatementError as exc:
+        if exc.code == "wrong_password":
+            limiter.wrong_password(actor)
         raise HTTPException(
             _ERROR_STATUS.get(exc.code, 422), {"code": exc.code, "message": exc.message}
         ) from None
@@ -227,6 +252,7 @@ async def create_draft(
     """
     db, pepper = _deps(request)
     await _require_role(db, club_id, x_actor_id, {"manager"})
+    limiter = _admit_upload(request, club_id, x_actor_id)
     try:
         pdf = base64.b64decode(body.statement_pdf, validate=True)
     except ValueError:
@@ -238,7 +264,7 @@ async def create_draft(
 
     try:
         parsed, _, fixtures, matches, batches = await _parse_and_match(
-            db, pepper, club_id, pdf, x_statement_password
+            db, pepper, club_id, pdf, x_statement_password, limiter, x_actor_id
         )
     finally:
         del pdf

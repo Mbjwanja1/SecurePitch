@@ -15,9 +15,9 @@ export class EngineError extends Error {
 const GENERIC = "SecurePitch's engine isn't available right now. Try again in a minute.";
 
 // Engine statuses whose messages are written for the coach (bad password, bad tags, a draft
-// that's already submitted). Anything else (a wrong internal key, a crash) gets the generic
+// that's already submitted, too many uploads). Anything else (a wrong internal key, a crash) gets the generic
 // message, so configuration details never reach the browser.
-const USER_FACING = new Set([400, 403, 404, 409, 413, 415, 422]);
+const USER_FACING = new Set([400, 403, 404, 409, 413, 415, 422, 429]);
 
 /** Turn an engine error response into something safe to show the coach. */
 export function engineFailure(status: number, body: unknown): EngineFailure {
