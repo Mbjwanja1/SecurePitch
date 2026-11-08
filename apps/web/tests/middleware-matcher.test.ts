@@ -8,7 +8,14 @@ import { config } from "@/middleware";
 const runs = (path: string) => config.matcher.some((m) => new RegExp(`^${m}$`).test(path));
 
 describe("middleware matcher", () => {
-  it.each(["/.well-known/securepitch-keys.json", "/_next/static/chunk.js", "/logo.svg"])(
+  it.each([
+    "/.well-known/securepitch-keys.json",
+    "/_next/static/chunk.js",
+    "/logo.svg",
+    "/manifest.webmanifest",
+    "/icons/icon-192.png",
+    "/apple-icon.png",
+  ])(
     "skips %s",
     (path) => expect(runs(path)).toBe(false),
   );

@@ -103,7 +103,7 @@ export function ApprovalPanel({
         <CardDescription>
           {signingAs === "manager"
             ? "Signing locks the ledger and sends it to your treasurer to approve."
-            : "Check the dossier above. Your signature is the club's independent approval."}
+            : "Check the ledger first. Your signature is the club's independent approval."}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

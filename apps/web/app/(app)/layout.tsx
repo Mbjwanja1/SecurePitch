@@ -1,6 +1,8 @@
+import { KeyRound } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 
@@ -14,14 +16,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-dvh">
-      <header className="border-b">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-3">
-          <Link href="/dashboard" className="font-semibold tracking-tight">
-            SecurePitch
+      <header className="border-b bg-card">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5">
+          <Link href="/dashboard" aria-label="SecurePitch: your clubs" className="inline-flex min-h-10 shrink-0 items-center">
+            <Brand />
           </Link>
-          <form action="/auth/signout" method="post" className="flex items-center gap-3">
-            <span className="hidden text-sm text-muted-foreground sm:inline">{user.email}</span>
-            <Link href="/settings/passkeys" className="text-sm hover:underline">
+          <form action="/auth/signout" method="post" className="flex min-w-0 items-center gap-1 sm:gap-3">
+            <span className="hidden min-w-0 truncate text-sm text-muted-foreground lg:inline">
+              {user.email}
+            </span>
+            <Link
+              href="/settings/passkeys"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-md px-2 text-sm hover:bg-muted lg:min-h-8"
+            >
+              <KeyRound aria-hidden className="size-4 text-muted-foreground" />
               Passkeys
             </Link>
             <Button type="submit" variant="outline" size="sm">
@@ -30,7 +38,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </form>
         </div>
       </header>
-      <main className="mx-auto max-w-3xl px-4 py-8">{children}</main>
+      {/* Pages are a readable column unless they ask for the full width (data-wide). */}
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:py-8 [&>*:not([data-wide])]:mx-auto [&>*:not([data-wide])]:max-w-3xl">
+        {children}
+      </main>
     </div>
   );
 }
