@@ -8,8 +8,9 @@ import { buttonVariants } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "How to try SecurePitch" };
 
-// A sealed dossier made for first-time visitors. Set once it's sealed on this domain.
-const DEMO_DOSSIER_ID: string | null = null;
+// A sealed dossier with made-up data, public on purpose so first-time visitors can verify one.
+// Never put a real club's dossier here.
+const DEMO_DOSSIER_ID: string | null = "48446402-6371-421d-a1f4-673f399a6573";
 
 const TRY_STEPS: [string, React.ReactNode][] = [
   [
