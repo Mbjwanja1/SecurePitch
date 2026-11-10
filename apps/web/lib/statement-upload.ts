@@ -18,6 +18,22 @@ export function checkStatementFile(file: { size: number; name: string; type: str
   return null;
 }
 
+/**
+ * The statement warnings the manager confirmed, from a form field. Only names go through; the
+ * engine compares them with what it finds when it reads the statement again.
+ */
+export function readAcknowledgedChecks(raw: FormDataEntryValue | null): string[] {
+  if (typeof raw !== "string") return [];
+  try {
+    const value: unknown = JSON.parse(raw);
+    return Array.isArray(value)
+      ? value.filter((v): v is string => typeof v === "string" && /^[a-z_]{1,40}$/.test(v)).slice(0, 10)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 /** True when the bytes start like a PDF ("%PDF-"), whatever the file name says. */
 export function looksLikePdf(bytes: Uint8Array): boolean {
   const magic = [0x25, 0x50, 0x44, 0x46, 0x2d];

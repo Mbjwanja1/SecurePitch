@@ -122,6 +122,21 @@ def test_rows_without_an_amount_are_refused_before_the_database(setup) -> None:
     assert err.value.problems == ["SJD0000001: no amount on this row"]
 
 
+def test_a_transfer_that_shares_its_receipt_with_its_charge_can_be_tagged() -> None:
+    # Real statements print the transfer and its charge under one receipt number, in either order.
+    for reverse in (False, True):
+        month = lionesses_month()
+        parents = {t.ts: t.tx for t in month if "Charge" not in t.details}
+        shared = [
+            dataclasses.replace(t, tx=parents[t.ts]) if "Charge" in t.details else t for t in month
+        ]
+        parsed = parse_statement(build_statement(shared), PASSWORD)
+        rows = list(reversed(parsed.rows)) if reverse else parsed.rows
+        fare = next(r for r in rows if r.amount_cents == 25000 and r.kind.value != "charge")
+        items = build_items(rows, [Tag(fare.tx, "transport")], {}, [], set(), b"k" * 32)
+        assert (items[0]["amt_cents"], items[0]["fee_cents"]) == (25000, 700)
+
+
 # ---- endpoint -----------------------------------------------------------------------------
 
 
@@ -159,7 +174,7 @@ def pdf_b64():
 def post_draft(client, body, actor=MANAGER, password=PASSWORD):
     return client.post(
         f"/v1/clubs/{CLUB}/dossiers",
-        json=body,
+        json={"acknowledged_checks": ["producer_baseline"], **body},
         headers={"X-Internal-Key": KEY, "X-Actor-Id": actor, "X-Statement-Password": password},
     )
 

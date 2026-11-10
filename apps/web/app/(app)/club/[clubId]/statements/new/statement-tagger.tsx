@@ -13,6 +13,8 @@ import {
   type Category,
   CATEGORY_LABEL,
   categoriesFor,
+  CHECK_LABEL,
+  failedCheckNames,
   formatKes,
   formatWhen,
   type ParsedStatement,
@@ -23,14 +25,6 @@ import {
   type Tags,
   type Transaction,
 } from "@/lib/tagging";
-
-const CHECK_LABEL: Record<string, string> = {
-  balance_chain: "Balances add up row by row",
-  summary_match: "Totals match the statement's own summary",
-  never_resaved: "Never re-saved or edited after M-Pesa produced it",
-  no_annotations_or_forms: "No added notes or form fields",
-  producer_baseline: "Produced the way genuine M-Pesa statements are",
-};
 
 type Filter = "all" | "out" | "in" | "tagged";
 const FILTER_LABEL: Record<Filter, string> = {
@@ -52,6 +46,7 @@ export function StatementTagger({ clubId }: { clubId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
+  const [acknowledged, setAcknowledged] = useState(false);
 
   const summary = useMemo(
     () => (parsed ? summarize(parsed.transactions, tags) : null),
@@ -84,6 +79,7 @@ export function StatementTagger({ clubId }: { clubId: string }) {
       if (!ok) return setError(json.error ?? "The statement couldn't be read.");
       setParsed(json as ParsedStatement);
       setTags({});
+      setAcknowledged(false);
     } catch {
       setError("Couldn't reach SecurePitch. Check your connection and try again.");
     } finally {
@@ -97,7 +93,10 @@ export function StatementTagger({ clubId }: { clubId: string }) {
     setError(null);
     setProblems([]);
     try {
-      const body = form({ tags: JSON.stringify(tagPayload(parsed.transactions, tags)) });
+      const body = form({
+        tags: JSON.stringify(tagPayload(parsed.transactions, tags)),
+        acknowledged: JSON.stringify(acknowledged ? failedCheckNames(parsed) : []),
+      });
       const { ok, json } = await post("dossiers", body);
       if (!ok) {
         setError(json.error ?? "The draft couldn't be saved.");
@@ -117,6 +116,7 @@ export function StatementTagger({ clubId }: { clubId: string }) {
   function startOver() {
     setParsed(null);
     setTags({});
+    setAcknowledged(false);
     setFile(null);
     setPassword("");
     setError(null);
@@ -171,13 +171,14 @@ export function StatementTagger({ clubId }: { clubId: string }) {
     );
   }
 
+  const mustAcknowledge = failedCheckNames(parsed).length > 0 && !acknowledged;
   const visible = parsed.transactions.filter((t) =>
     filter === "all" ? true : filter === "tagged" ? Boolean(tags[t.tx]) : t.dir === filter,
   );
 
   return (
     <div className="flex flex-col gap-6">
-      <StatementSummary parsed={parsed} />
+      <StatementSummary parsed={parsed} acknowledged={acknowledged} onAcknowledge={setAcknowledged} />
 
       {parsed.batches.length > 0 && (
         <section className="flex flex-col gap-3">
@@ -256,8 +257,13 @@ export function StatementTagger({ clubId }: { clubId: string }) {
               )}
             </div>
           )}
+          {mustAcknowledge && (
+            <p className="text-sm text-muted-foreground">
+              Confirm the statement warnings above to save this draft.
+            </p>
+          )}
           <div className="flex flex-wrap gap-2 *:max-sm:flex-1">
-            <Button type="button" onClick={save} disabled={busy || summary.tagged === 0}>
+            <Button type="button" onClick={save} disabled={busy || summary.tagged === 0 || mustAcknowledge}>
               {busy ? "Saving…" : "Save draft dossier"}
             </Button>
             <Button
@@ -285,8 +291,16 @@ function Stat({ label, value, className }: { label: string; value: string; class
   );
 }
 
-function StatementSummary({ parsed }: { parsed: ParsedStatement }) {
-  const failed = Object.entries(parsed.integrity.checks).filter(([, c]) => !c.passed);
+function StatementSummary({
+  parsed,
+  acknowledged,
+  onAcknowledge,
+}: {
+  parsed: ParsedStatement;
+  acknowledged: boolean;
+  onAcknowledge: (value: boolean) => void;
+}) {
+  const failed = failedCheckNames(parsed);
   const period =
     parsed.period.from && parsed.period.to
       ? `${parsed.period.from} to ${parsed.period.to}`
@@ -312,10 +326,24 @@ function StatementSummary({ parsed }: { parsed: ParsedStatement }) {
           ))}
         </ul>
         {failed.length > 0 && (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Sponsors see this score on the dossier. If you didn&apos;t change the file, download
-            the statement again from M-Pesa and upload the new copy.
-          </p>
+          <div className="mt-3 flex flex-col gap-3 text-sm">
+            <p className="text-muted-foreground">
+              Sponsors see this score on the dossier. If you didn&apos;t change the file, download
+              the statement again from M-Pesa and upload the new copy.
+            </p>
+            <label className="flex min-h-11 items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-5 shrink-0"
+                checked={acknowledged}
+                onChange={(e) => onAcknowledge(e.target.checked)}
+              />
+              <span>
+                I&apos;ve read these warnings and want to continue. My treasurer will see them
+                before approving.
+              </span>
+            </label>
+          </div>
         )}
       </CardContent>
     </Card>

@@ -11,7 +11,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { fingerprint, passkeyErrorMessage, postJson } from "@/lib/passkey-client";
-import { type Category, CATEGORY_LABEL, formatKes } from "@/lib/tagging";
+import { type Category, CATEGORY_LABEL, CHECK_LABEL, formatKes } from "@/lib/tagging";
 
 type Summary = {
   signing_as: "manager" | "treasurer";
@@ -19,6 +19,7 @@ type Summary = {
   rows_disclosed: number;
   totals_cents: Record<string, number>;
   integrity_score_bp: number;
+  failed_checks?: { check: string; detail: string; acknowledged: boolean }[];
   challenge: string;
 };
 
@@ -131,6 +132,22 @@ export function ApprovalPanel({
                   <dd className="font-medium tabular-nums">{formatKes(cents)}</dd>
                 </div>
               ))}
+              {(summary.failed_checks ?? []).length > 0 && (
+                <div className="rounded-lg border border-destructive/40 p-3 sm:col-span-2">
+                  <dt className="font-medium text-destructive">Statement warnings</dt>
+                  <dd>
+                    <ul className="mt-1 flex flex-col gap-1">
+                      {summary.failed_checks?.map((c) => (
+                        <li key={c.check}>
+                          ✗ {CHECK_LABEL[c.check] ?? c.check}
+                          {c.detail ? ` (${c.detail})` : ""}
+                          {c.acknowledged ? ". The manager confirmed this when saving." : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </dd>
+                </div>
+              )}
               <div className="sm:col-span-2">
                 <dt className="text-muted-foreground">Fingerprint of what you&apos;re signing</dt>
                 <dd className="font-mono font-medium">{fingerprint(summary.challenge)}</dd>

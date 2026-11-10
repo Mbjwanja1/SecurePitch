@@ -244,7 +244,7 @@ def build_statement(
                 [
                     [
                         "Statement Verification Code",
-                        "To verify the validity of this statement dial *999#",
+                        "To verify the validity of this statement dial *334#",
                     ],
                     ["", ""],
                     ["SYN1CODE", ""],
