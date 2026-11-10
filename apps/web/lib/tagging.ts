@@ -43,6 +43,7 @@ export const CHECK_LABEL: Record<string, string> = {
   never_resaved: "Never re-saved or edited after M-Pesa produced it",
   no_annotations_or_forms: "No added notes or form fields",
   producer_baseline: "Produced the way genuine M-Pesa statements are",
+  issued_by_safaricom: "Issued by Safaricom: its email signature verified",
 };
 
 /** The checks this statement failed. The engine refuses failed sums, so these are warnings. */

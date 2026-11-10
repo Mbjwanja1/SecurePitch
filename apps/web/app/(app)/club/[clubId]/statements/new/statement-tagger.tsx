@@ -133,15 +133,20 @@ export function StatementTagger({ clubId }: { clubId: string }) {
             the password from the SMS. The file is read in memory and never stored; only the
             rows you tag as club rows are saved.
           </CardDescription>
+          <CardDescription>
+            On a computer? For a stronger check, open Safaricom&apos;s email in Gmail, choose ⋮
+            then Download message, and upload that .eml file instead. Sponsors will see it was
+            issued by Safaricom.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={upload} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="statement">Statement PDF</Label>
+              <Label htmlFor="statement">Statement PDF or email</Label>
               <Input
                 id="statement"
                 type="file"
-                accept="application/pdf,.pdf"
+                accept="application/pdf,.pdf,message/rfc822,.eml"
                 required
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />

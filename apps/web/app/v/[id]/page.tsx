@@ -101,6 +101,14 @@ export default async function VerifyPage({ params }: { params: Promise<{ id: str
               </dd>
             </div>
             <div className="col-span-2">
+              <dt className="text-muted-foreground">Statement source</dt>
+              <dd className="font-medium">
+                {p.integrity.checks.issued_by_safaricom
+                  ? "Issued by Safaricom: email verified"
+                  : "Uploaded as a PDF"}
+              </dd>
+            </div>
+            <div className="col-span-2">
               <dt className="text-muted-foreground">Ledger fingerprint</dt>
               <dd className="font-mono font-medium">{fingerprint(p.merkle_root)}</dd>
             </div>

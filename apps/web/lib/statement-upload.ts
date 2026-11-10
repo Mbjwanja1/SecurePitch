@@ -6,14 +6,20 @@ export const MAX_STATEMENT_BYTES = 4 * 1024 * 1024;
 export const MAX_PASSWORD_LENGTH = 64;
 
 export type UploadProblem = { status: number; message: string };
+export type StatementFormat = "pdf" | "email";
+
+/** The .eml file Safaricom's statement email downloads as. */
+function isEmailFile(file: { name: string; type: string }): boolean {
+  return file.type === "message/rfc822" || file.name.toLowerCase().endsWith(".eml");
+}
 
 export function checkStatementFile(file: { size: number; name: string; type: string }): UploadProblem | null {
   if (file.size === 0) return { status: 400, message: "That file is empty." };
   if (file.size > MAX_STATEMENT_BYTES) {
     return { status: 413, message: "Statements are limited to 4 MB. Download one month at a time." };
   }
-  if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-    return { status: 415, message: "Choose the PDF statement M-Pesa sent you." };
+  if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf") && !isEmailFile(file)) {
+    return { status: 415, message: "Choose the PDF statement M-Pesa sent you, or its .eml email." };
   }
   return null;
 }
@@ -46,7 +52,7 @@ export function looksLikePdf(bytes: Uint8Array): boolean {
  */
 export async function readStatementForm(
   form: FormData,
-): Promise<{ pdf: Uint8Array<ArrayBuffer>; password: string } | UploadProblem> {
+): Promise<{ bytes: Uint8Array<ArrayBuffer>; format: StatementFormat; password: string } | UploadProblem> {
   const file = form.get("statement");
   const password = form.get("password");
   if (!(file instanceof File)) return { status: 400, message: "Choose your statement PDF." };
@@ -58,7 +64,8 @@ export async function readStatementForm(
   }
   const problem = checkStatementFile(file);
   if (problem) return problem;
-  const pdf = new Uint8Array(await file.arrayBuffer());
-  if (!looksLikePdf(pdf)) return { status: 415, message: "That file isn't a PDF." };
-  return { pdf, password };
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (isEmailFile(file)) return { bytes, format: "email", password }; // the engine verifies it
+  if (!looksLikePdf(bytes)) return { status: 415, message: "That file isn't a PDF." };
+  return { bytes, format: "pdf", password };
 }

@@ -47,7 +47,8 @@ export async function POST(
     const saved = await callEngine<Saved>(`/v1/clubs/${clubId}/dossiers`, {
       actor: guard.userId,
       body: JSON.stringify({
-        statement_pdf: Buffer.from(upload.pdf).toString("base64"),
+        [upload.format === "email" ? "statement_email" : "statement_pdf"]:
+          Buffer.from(upload.bytes).toString("base64"),
         tags,
         acknowledged_checks: readAcknowledgedChecks(form.get("acknowledged")),
       }),

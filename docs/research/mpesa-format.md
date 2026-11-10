@@ -16,6 +16,8 @@ Findings from inspecting a genuine Safaricom M-Pesa full statement with `tools/i
 | Annotations, form fields | None | Any present is suspicious |
 | Fonts | DejaVuSans, FuturaBT-Medium | Baseline: text added in another editor usually brings other fonts |
 
+**Email proof:** the statement arrives as an email with one DKIM signature from `safaricom.co.ke` (rsa-sha256, simple/simple, no `l=`, a 365-day `x=`) covering From, To, Subject and Date. Checked on one email. Changing one character of the attachment fails verification.
+
 ## 2. Page layout
 
 **Page 1, above the tables:**

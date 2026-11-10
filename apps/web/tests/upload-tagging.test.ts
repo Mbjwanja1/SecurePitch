@@ -97,12 +97,14 @@ describe("statement upload checks", () => {
   it("accepts a PDF up to the limit", () => {
     expect(checkStatementFile(pdf(MAX_STATEMENT_BYTES))).toBeNull();
     expect(checkStatementFile(pdf(1000, "MPESA_Statement.PDF", ""))).toBeNull();
+    expect(checkStatementFile(pdf(1000, "statement.eml", ""))).toBeNull();
   });
 
   it.each([
     [pdf(0), 400],
     [pdf(MAX_STATEMENT_BYTES + 1), 413],
     [pdf(1000, "statement.png", "image/png"), 415],
+    [pdf(MAX_STATEMENT_BYTES + 1, "statement.eml", "message/rfc822"), 413],
   ])("refuses %j with %i", (file, status) => {
     expect(checkStatementFile(file)?.status).toBe(status);
   });
@@ -122,7 +124,8 @@ describe("statement upload checks", () => {
     expect(await readStatementForm(form("%PDF-1.7"))).toMatchObject({ status: 400 });
     expect(await readStatementForm(form("<html>", "123456"))).toMatchObject({ status: 415 });
     const ok = await readStatementForm(form("%PDF-1.7", "123456"));
-    expect("pdf" in ok && ok.password).toBe("123456");
+    expect("bytes" in ok && ok.password).toBe("123456");
+    expect("bytes" in ok && ok.format).toBe("pdf");
   });
 });
 
@@ -206,5 +209,22 @@ describe("statement warnings", () => {
 
   it("caps how many acknowledgements are forwarded", () => {
     expect(readAcknowledgedChecks(JSON.stringify(Array(50).fill("a_check")))).toHaveLength(10);
+  });
+});
+
+describe("statement emails", () => {
+  it("passes an .eml to the engine to verify, without treating it as a PDF", async () => {
+    const f = new FormData();
+    f.set("statement", new File(["From: a@b.example\r\n\r\nhi"], "statement.eml", { type: "" }));
+    f.set("password", "123456");
+    const ok = await readStatementForm(f);
+    expect("bytes" in ok && ok.format).toBe("email");
+  });
+
+  it("still refuses a non-PDF that only claims to be a PDF", async () => {
+    const f = new FormData();
+    f.set("statement", new File(["From: a@b.example"], "statement.pdf", { type: "application/pdf" }));
+    f.set("password", "123456");
+    expect(await readStatementForm(f)).toMatchObject({ status: 415 });
   });
 });
