@@ -166,7 +166,12 @@ def build_context(
         "sealed_at_short": f"{_day(sealed_at)} {sealed_at.year}",
         "totals": {"club_spending": kes(spending), "net_funds": kes(income - spending)},
         "rows_disclosed": sealed["rows_disclosed"],
-        "integrity": {"score": f"{sealed['integrity']['score_bp'] / 100:g}"},
+        "integrity": {
+            "score": f"{sealed['integrity']['score_bp'] / 100:g}",
+            "source": "EMAIL VERIFIED"
+            if sealed["integrity"]["checks"].get("issued_by_safaricom")
+            else "UPLOADED AS PDF",
+        },
         "planned_spends": [
             {
                 "purpose": p["purpose"],

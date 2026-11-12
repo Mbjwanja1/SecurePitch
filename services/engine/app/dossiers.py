@@ -66,7 +66,12 @@ def build_items(
     fixture_codes: set[str],
     club_key: bytes,
 ) -> list[dict[str, Any]]:
-    by_tx = {r.tx: r for r in rows}
+    # A transfer and its charge share a receipt number: the tag is for the transfer. Charges
+    # with a receipt of their own stay findable, so tagging one gets a clear refusal below.
+    by_tx: dict[str, Row] = {}
+    for r in rows:
+        if r.tx not in by_tx or by_tx[r.tx].kind is Kind.CHARGE:
+            by_tx[r.tx] = r
     batch_fixture = {tx: b.fixture_code for b in batches if b.fixture_code for tx in b.txs}
     problems: list[str] = []
     items: list[dict[str, Any]] = []

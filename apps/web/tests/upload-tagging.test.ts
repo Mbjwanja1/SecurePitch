@@ -2,11 +2,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { callEngine, EngineError, engineFailure } from "@/lib/engine";
-import { checkStatementFile, looksLikePdf, MAX_STATEMENT_BYTES, readStatementForm } from "@/lib/statement-upload";
+import {
+  checkStatementFile,
+  looksLikePdf,
+  MAX_STATEMENT_BYTES,
+  readAcknowledgedChecks,
+  readStatementForm,
+} from "@/lib/statement-upload";
 import {
   type Batch,
   categoriesFor,
   counterpartyLabel,
+  failedCheckNames,
   formatKes,
   formatWhen,
   setTag,
@@ -90,12 +97,14 @@ describe("statement upload checks", () => {
   it("accepts a PDF up to the limit", () => {
     expect(checkStatementFile(pdf(MAX_STATEMENT_BYTES))).toBeNull();
     expect(checkStatementFile(pdf(1000, "MPESA_Statement.PDF", ""))).toBeNull();
+    expect(checkStatementFile(pdf(1000, "statement.eml", ""))).toBeNull();
   });
 
   it.each([
     [pdf(0), 400],
     [pdf(MAX_STATEMENT_BYTES + 1), 413],
     [pdf(1000, "statement.png", "image/png"), 415],
+    [pdf(MAX_STATEMENT_BYTES + 1, "statement.eml", "message/rfc822"), 413],
   ])("refuses %j with %i", (file, status) => {
     expect(checkStatementFile(file)?.status).toBe(status);
   });
@@ -115,7 +124,8 @@ describe("statement upload checks", () => {
     expect(await readStatementForm(form("%PDF-1.7"))).toMatchObject({ status: 400 });
     expect(await readStatementForm(form("<html>", "123456"))).toMatchObject({ status: 415 });
     const ok = await readStatementForm(form("%PDF-1.7", "123456"));
-    expect("pdf" in ok && ok.password).toBe("123456");
+    expect("bytes" in ok && ok.password).toBe("123456");
+    expect("bytes" in ok && ok.format).toBe("pdf");
   });
 });
 
@@ -177,5 +187,49 @@ describe("callEngine", () => {
     await expect(
       callEngine("/x", { actor: "u", body: "", contentType: "application/json" }),
     ).rejects.toMatchObject({ failure: { status: 502 } });
+  });
+});
+
+describe("statement warnings", () => {
+  const check = (passed: boolean) => ({ passed, weight_bp: 500, detail: "" });
+
+  it("lists only the checks that failed", () => {
+    const integrity = { score_bp: 9500, checks: { balance_chain: check(true), producer_baseline: check(false) } };
+    expect(failedCheckNames({ integrity })).toEqual(["producer_baseline"]);
+  });
+
+  it.each([
+    [null, []],
+    ["not json", []],
+    ['{"a":1}', []],
+    ['["producer_baseline",7,"BAD NAME"]', ["producer_baseline"]],
+  ])("reads acknowledgements from %s", (raw, expected) => {
+    expect(readAcknowledgedChecks(raw)).toEqual(expected);
+  });
+
+  it("caps how many acknowledgements are forwarded", () => {
+    expect(readAcknowledgedChecks(JSON.stringify(Array(50).fill("a_check")))).toHaveLength(10);
+  });
+});
+
+describe("statement emails", () => {
+  it("points a too-large email to the PDF route instead", () => {
+    const big = { size: MAX_STATEMENT_BYTES + 1, name: "statement.eml", type: "message/rfc822" };
+    expect(checkStatementFile(big)?.message).toMatch(/Upload the PDF statement/);
+  });
+
+  it("passes an .eml to the engine to verify, without treating it as a PDF", async () => {
+    const f = new FormData();
+    f.set("statement", new File(["From: a@b.example\r\n\r\nhi"], "statement.eml", { type: "" }));
+    f.set("password", "123456");
+    const ok = await readStatementForm(f);
+    expect("bytes" in ok && ok.format).toBe("email");
+  });
+
+  it("still refuses a non-PDF that only claims to be a PDF", async () => {
+    const f = new FormData();
+    f.set("statement", new File(["From: a@b.example"], "statement.pdf", { type: "application/pdf" }));
+    f.set("password", "123456");
+    expect(await readStatementForm(f)).toMatchObject({ status: 415 });
   });
 });

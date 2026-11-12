@@ -1,21 +1,48 @@
 // Checks on an uploaded statement, shared by the browser (early feedback) and the route
 // handlers (the real check). The engine checks again.
 
-// Vercel refuses request bodies over 4.5 MB. A month's M-Pesa statement is usually well under 1 MB.
+// Vercel refuses request bodies over 4.5 MB, so this can't go higher. A month's M-Pesa statement
+// is usually well under 1 MB. An emailed statement is about 1.5 times its PDF (base64 plus the
+// message), so the largest .eml that fits holds a PDF of roughly 2.6 MB.
 export const MAX_STATEMENT_BYTES = 4 * 1024 * 1024;
 export const MAX_PASSWORD_LENGTH = 64;
 
 export type UploadProblem = { status: number; message: string };
+export type StatementFormat = "pdf" | "email";
+
+/** The .eml file Safaricom's statement email downloads as. */
+function isEmailFile(file: { name: string; type: string }): boolean {
+  return file.type === "message/rfc822" || file.name.toLowerCase().endsWith(".eml");
+}
 
 export function checkStatementFile(file: { size: number; name: string; type: string }): UploadProblem | null {
   if (file.size === 0) return { status: 400, message: "That file is empty." };
   if (file.size > MAX_STATEMENT_BYTES) {
-    return { status: 413, message: "Statements are limited to 4 MB. Download one month at a time." };
+    const message = isEmailFile(file)
+      ? "That email is too large to upload. Upload the PDF statement from it instead."
+      : "Statements are limited to 4 MB. Download one month at a time.";
+    return { status: 413, message };
   }
-  if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-    return { status: 415, message: "Choose the PDF statement M-Pesa sent you." };
+  if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf") && !isEmailFile(file)) {
+    return { status: 415, message: "Choose the PDF statement M-Pesa sent you, or its .eml email." };
   }
   return null;
+}
+
+/**
+ * The statement warnings the manager confirmed, from a form field. Only names go through; the
+ * engine compares them with what it finds when it reads the statement again.
+ */
+export function readAcknowledgedChecks(raw: FormDataEntryValue | null): string[] {
+  if (typeof raw !== "string") return [];
+  try {
+    const value: unknown = JSON.parse(raw);
+    return Array.isArray(value)
+      ? value.filter((v): v is string => typeof v === "string" && /^[a-z_]{1,40}$/.test(v)).slice(0, 10)
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 /** True when the bytes start like a PDF ("%PDF-"), whatever the file name says. */
@@ -30,7 +57,7 @@ export function looksLikePdf(bytes: Uint8Array): boolean {
  */
 export async function readStatementForm(
   form: FormData,
-): Promise<{ pdf: Uint8Array<ArrayBuffer>; password: string } | UploadProblem> {
+): Promise<{ bytes: Uint8Array<ArrayBuffer>; format: StatementFormat; password: string } | UploadProblem> {
   const file = form.get("statement");
   const password = form.get("password");
   if (!(file instanceof File)) return { status: 400, message: "Choose your statement PDF." };
@@ -42,7 +69,8 @@ export async function readStatementForm(
   }
   const problem = checkStatementFile(file);
   if (problem) return problem;
-  const pdf = new Uint8Array(await file.arrayBuffer());
-  if (!looksLikePdf(pdf)) return { status: 415, message: "That file isn't a PDF." };
-  return { pdf, password };
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (isEmailFile(file)) return { bytes, format: "email", password }; // the engine verifies it
+  if (!looksLikePdf(bytes)) return { status: 415, message: "That file isn't a PDF." };
+  return { bytes, format: "pdf", password };
 }

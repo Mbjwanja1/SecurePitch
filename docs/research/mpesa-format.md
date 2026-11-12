@@ -16,6 +16,8 @@ Findings from inspecting a genuine Safaricom M-Pesa full statement with `tools/i
 | Annotations, form fields | None | Any present is suspicious |
 | Fonts | DejaVuSans, FuturaBT-Medium | Baseline: text added in another editor usually brings other fonts |
 
+**Email proof:** the statement arrives as an email with one DKIM signature from `safaricom.co.ke` (rsa-sha256, simple/simple, no `l=`, a 365-day `x=`) covering From, To, Subject and Date. Checked on one email. Changing one character of the attachment fails verification.
+
 ## 2. Page layout
 
 **Page 1, above the tables:**
@@ -34,9 +36,9 @@ SUMMARY
 **Summary table (page 1 only):** `TRANSACTION TYPE | PAID IN | PAID OUT`, one row per type, with labels ending in a colon:
 `SEND MONEY:`, `RECEIVED MONEY:`, `AGENT DEPOSIT:`, `AGENT WITHDRAWAL:`, `LIPA NA M-PESA (PAYBILL):`, `LIPA NA M-PESA (BUY GOODS):`, `OTHERS:`, `TOTAL:`. Amounts look like `99,999.99`.
 
-**Every page:** one detail table (below), plus a **"Statement Verification Code"** table: *"To verify the validity of this M-PESA statement dial \*999#, select My account and follow the prompts to enter the code."*
+**Every page:** one detail table (below), plus a **"Statement Verification Code"** table: *"To verify the validity of this M-PESA statement dial \*334#, select My account and follow the prompts to enter the code."*
 
-> ⚠️ **Open question for Joy (product):** Safaricom provides its own authenticity check. What does `*999#` verification show, and to whom? If an auditor can verify a statement's code from their own phone, recording the code in the dossier would answer R1 ("is the statement genuine?") far better than any PDF forensics. Worth a quick test with a teammate's phone.
+> ⚠️ **Open question for Joy (product):** Safaricom provides its own authenticity check. What does `*334#` verification show, and to whom? If an auditor can verify a statement's code from their own phone, recording the code in the dossier would answer R1 ("is the statement genuine?") far better than any PDF forensics. Worth a quick test with a teammate's phone.
 
 ## 3. Detail table
 
@@ -55,6 +57,8 @@ In this sample the header row repeats on all 17 pages. **Don't rely on that:** a
 | 6 | Balance | `9,999.99` | |
 
 **Order:** newest first.
+
+**Receipt numbers:** a transfer and its charge share one receipt number (101 pairs in this sample). Two different transactions never do.
 
 **Balance chain:** walking oldest → newest, `balance = previous balance + paid in − |withdrawn|` holds for **every row**, *provided rows with the same timestamp may come in either order*. A naive top-to-bottom check reports 108 false breaks out of 581. They come from 101 pairs of rows in the same second, typically a transfer and its charge, which the statement lists in varying order. **The parser must reorder within same-second groups before checking the chain** (groups are at most 2 rows in this sample).
 
@@ -93,5 +97,5 @@ Till and paybill numbers are 6–7 digits.
 1. **Integrity score:** drop "CreationDate = ModDate"; keep "single `%%EOF` / no `/Prev`", producer/creator baseline, fonts baseline, no annotations or forms; add the **same-second reordering** rule to the balance chain check.
 2. **Roster matching:** `mask_key` (prefix4 + suffix3) + case-insensitive name tokens is the primary path; `phone_key` stays for roster de-duplication only.
 3. **Charges:** attach `Customer Transfer of Funds Charge` / `Pay Bill Charge` rows to the transaction in the same second, so a KES 250 transfer is reported with its fee.
-4. **Investigate the `*999#` verification code** (section 2) as a stronger authenticity signal than PDF forensics.
+4. **Investigate the `*334#` verification code** (section 2) as a stronger authenticity signal than PDF forensics.
 5. **Synthetic fixtures** (`tools/make_fake_statement.py`) must reproduce: page-1 header, summary table, 7-column detail table, negative withdrawals, newest-first order, same-second charge pairs in both orders, both masked-number forms, mixed-case names, and the verification-code table.

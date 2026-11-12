@@ -25,6 +25,9 @@ EAT = timezone(timedelta(hours=3), "EAT")  # Kenya has no daylight saving
 TX_RE = re.compile(r"^[A-Z0-9]{10}$")
 PERIOD_RE = re.compile(r"Statement Period\s*:\s*(\d{1,2} \w{3} \d{4})\s*-\s*(\d{1,2} \w{3} \d{4})")
 DETAIL_COLUMNS = 7
+# A genuine three-month statement of 582 rows is 17 pages. Parsing cost grows with pages, and a
+# few KB of PDF can hold thousands of them, so the limit is on pages, not only on bytes.
+MAX_PAGES = 200
 
 
 class StatementError(Exception):
@@ -81,6 +84,49 @@ def _pdf_signals(raw: bytes, doc: pikepdf.Pdf) -> PdfSignals:
     )
 
 
+# Action types that run code or open something outside the PDF. A plain link (/URI) is not one:
+# any annotation is already a warning in the integrity score.
+_ACTIVE_ACTIONS = {
+    "/JavaScript",
+    "/Launch",
+    "/ImportData",
+    "/SubmitForm",
+    "/ResetForm",
+    "/Rendition",
+}
+
+
+def _is_active_action(action: object) -> bool:
+    return isinstance(action, pikepdf.Dictionary) and str(action.get("/S", "")) in _ACTIVE_ACTIONS
+
+
+def _has_active_content(doc: pikepdf.Pdf) -> bool:
+    """Scripts, attachments or actions that run on opening a document, a page or an annotation.
+
+    A statement never has these. Pages are at most MAX_PAGES, checked before this runs.
+    """
+    root = doc.Root
+    names = root.get("/Names")
+    if isinstance(names, pikepdf.Dictionary) and (
+        "/JavaScript" in names or "/EmbeddedFiles" in names
+    ):
+        return True
+    if "/OpenAction" in root or "/AA" in root:
+        return True
+    for page in doc.pages:
+        if "/AA" in page.obj:  # page open and close actions
+            return True
+        annots = page.obj.get("/Annots")
+        for annot in annots if isinstance(annots, pikepdf.Array) else ():
+            if not isinstance(annot, pikepdf.Dictionary):
+                continue
+            if "/AA" in annot or _is_active_action(annot.get("/A")):
+                return True
+            if annot.get("/Subtype") == pikepdf.Name.FileAttachment:
+                return True
+    return False
+
+
 def _period(text: str) -> tuple[date | None, date | None]:
     m = PERIOD_RE.search(text or "")
     if not m:
@@ -108,13 +154,36 @@ def _attach_charges(rows: list[Row]) -> None:
             r.fee_of = parent.tx
 
 
+def _check_rows(rows: list[Row], period_from: date | None, period_to: date | None) -> None:
+    """Refuse row patterns a genuine statement can't have. Messages carry no statement data."""
+    # A transfer and its charge do share a receipt number; two transactions never should.
+    transactions = [r.tx for r in rows if r.kind is not Kind.CHARGE]
+    if len(transactions) != len(set(transactions)):
+        raise StatementError(
+            "duplicate_receipt", "The same receipt number appears on two different transactions."
+        )
+    if period_from and period_to and any(not period_from <= r.ts.date() <= period_to for r in rows):
+        raise StatementError(
+            "rows_outside_period", "Some transactions fall outside the statement's own period."
+        )
+
+
 def parse_statement(pdf: bytes, password: str) -> ParsedStatement:
     if not pdf.startswith(b"%PDF-"):
         raise StatementError("not_a_pdf", "That file isn't a PDF.")
     try:
         with pikepdf.open(io.BytesIO(pdf), password=password) as doc:
-            signals = _pdf_signals(pdf, doc)
             pages = len(doc.pages)
+            if pages > MAX_PAGES:
+                raise StatementError(
+                    "too_many_pages", f"Statements are limited to {MAX_PAGES} pages."
+                )
+            if _has_active_content(doc):
+                raise StatementError(
+                    "active_content",
+                    "That PDF contains scripts or attachments, so it can't be used.",
+                )
+            signals = _pdf_signals(pdf, doc)
     except pikepdf.PasswordError:
         raise StatementError("wrong_password", "The statement password is wrong.") from None
     except (pikepdf.PdfError, ValueError, TypeError, AttributeError, KeyError, IndexError):
@@ -200,6 +269,7 @@ def _parse_content(pdf: bytes, password: str, signals: PdfSignals, pages: int) -
     if not rows:
         raise StatementError("no_transactions", "No transactions were found in the statement.")
 
+    _check_rows(rows, period_from, period_to)
     _attach_charges(rows)
     return ParsedStatement(
         source_sha256=hashlib.sha256(pdf).hexdigest(),

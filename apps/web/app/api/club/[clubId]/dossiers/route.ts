@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { requireManager } from "@/lib/club-guard";
 import { callEngine, EngineError, failureHeaders } from "@/lib/engine";
-import { readStatementForm } from "@/lib/statement-upload";
+import { readAcknowledgedChecks, readStatementForm } from "@/lib/statement-upload";
 
 type Saved = { dossier_id: string; replaced_draft: boolean; items: number };
 
@@ -46,7 +46,12 @@ export async function POST(
   try {
     const saved = await callEngine<Saved>(`/v1/clubs/${clubId}/dossiers`, {
       actor: guard.userId,
-      body: JSON.stringify({ statement_pdf: Buffer.from(upload.pdf).toString("base64"), tags }),
+      body: JSON.stringify({
+        [upload.format === "email" ? "statement_email" : "statement_pdf"]:
+          Buffer.from(upload.bytes).toString("base64"),
+        tags,
+        acknowledged_checks: readAcknowledgedChecks(form.get("acknowledged")),
+      }),
       contentType: "application/json",
       statementPassword: upload.password,
     });

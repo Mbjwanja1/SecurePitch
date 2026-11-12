@@ -21,8 +21,8 @@ export async function POST(
   try {
     const parsed = await callEngine(`/v1/clubs/${clubId}/statements/parse`, {
       actor: guard.userId,
-      body: upload.pdf,
-      contentType: "application/pdf",
+      body: upload.bytes,
+      contentType: upload.format === "email" ? "message/rfc822" : "application/pdf",
       statementPassword: upload.password,
     });
     return NextResponse.json(parsed, { headers: { "Cache-Control": "no-store" } });

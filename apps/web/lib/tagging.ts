@@ -37,6 +37,22 @@ export type ParsedStatement = {
   batches: Batch[];
 };
 
+export const CHECK_LABEL: Record<string, string> = {
+  balance_chain: "Balances add up row by row",
+  summary_match: "Totals match the statement's own summary",
+  never_resaved: "Never re-saved or edited after M-Pesa produced it",
+  no_annotations_or_forms: "No added notes or form fields",
+  producer_baseline: "Produced the way genuine M-Pesa statements are",
+  issued_by_safaricom: "Issued by Safaricom: its email signature verified",
+};
+
+/** The checks this statement failed. The engine refuses failed sums, so these are warnings. */
+export function failedCheckNames(parsed: Pick<ParsedStatement, "integrity">): string[] {
+  return Object.entries(parsed.integrity.checks)
+    .filter(([, c]) => !c.passed)
+    .map(([name]) => name);
+}
+
 export const CATEGORY_LABEL = {
   transport: "Transport",
   allowance: "Allowance",

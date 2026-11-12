@@ -14,10 +14,13 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.config import MAX_STATEMENT_BYTES
 from app.dossiers import Tag, TagError, build_items
+from app.ingest.email_proof import CHECK_NAME, SIGNER_DOMAIN, extract_verified_pdf
+from app.ingest.integrity import failed_checks
+from app.ingest.models import ParsedStatement
 from app.ingest.parse import StatementError, parse_statement
 from app.ratelimit import UploadLimiter
 from app.roster.keys import (
@@ -159,19 +162,26 @@ async def parse_for_club(
     db, pepper = _deps(request)
     await _require_role(db, club_id, x_actor_id, {"manager"})
     limiter = _admit_upload(request, club_id, x_actor_id)
-    if request.headers.get("content-type", "").split(";")[0].strip().lower() != "application/pdf":
-        raise HTTPException(415, "Send the PDF as application/pdf")
+    content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    if content_type not in ("application/pdf", "message/rfc822"):
+        raise HTTPException(415, "Send the PDF as application/pdf or the email as message/rfc822")
     body = await request.body()
     if not body:
         raise HTTPException(400, "The request body is empty")
+    if len(body) > MAX_STATEMENT_BYTES:
+        raise HTTPException(413, {"code": "too_large", "message": "Statements are limited to 5 MB"})
+    from_email = content_type == "message/rfc822"
     try:
+        pdf = await _pdf_from_email(body) if from_email else body
         parsed, players, fixtures, matches, batches = await _parse_and_match(
-            db, pepper, club_id, body, x_statement_password, limiter, x_actor_id
+            db, pepper, club_id, pdf, x_statement_password, limiter, x_actor_id
         )
     finally:
         del body
 
     result = _statement_json(parsed)
+    if from_email:
+        result["integrity"]["checks"][CHECK_NAME] = _ISSUER_PROOF
     for t in result["transactions"]:
         m = matches.get(t["tx"])
         t["match"] = {"status": m.status.value, "player_code": m.player_code} if m else None
@@ -188,6 +198,38 @@ async def parse_for_club(
         for b in batches
     ]
     return result
+
+
+_ISSUER_PROOF = {"passed": True, "weight_bp": 0, "detail": f"signed by {SIGNER_DOMAIN}"}
+
+
+async def _pdf_from_email(eml: bytes) -> bytes:
+    """The statement inside a Safaricom-signed email, or a refusal the coach can act on."""
+    try:
+        return await run_in_threadpool(extract_verified_pdf, eml)  # the check makes a DNS lookup
+    except StatementError as exc:
+        raise HTTPException(422, {"code": exc.code, "message": exc.message}) from None
+
+
+_BLOCKING_REASON = {
+    "balance_chain": "its balances don't add up row by row",
+    "summary_match": "its totals don't match its own summary",
+}
+
+
+def _refuse_if_numbers_fail(parsed: ParsedStatement) -> None:
+    """Stop here, for the preview and the save alike, before any row reaches the browser."""
+    blocking, _ = failed_checks(parsed.integrity)
+    if blocking:
+        reasons = " and ".join(_BLOCKING_REASON[name] for name in blocking)
+        raise HTTPException(
+            422,
+            {
+                "code": "integrity_failed",
+                "message": f"This statement can't be used because {reasons}. "
+                "Download a fresh copy from M-Pesa and upload that.",
+            },
+        )
 
 
 async def _parse_and_match(
@@ -208,6 +250,7 @@ async def _parse_and_match(
         raise HTTPException(
             _ERROR_STATUS.get(exc.code, 422), {"code": exc.code, "message": exc.message}
         ) from None
+    _refuse_if_numbers_fail(parsed)
     players = [
         Player(r["player_code"], r["full_name"], r.get("mask_key"))
         for r in await run_in_threadpool(db.roster, club_id)
@@ -234,8 +277,18 @@ class TagIn(BaseModel):
 class DraftIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    statement_pdf: str = Field(description="the statement PDF, base64-encoded")
+    statement_pdf: str | None = Field(default=None, description="the statement PDF, base64-encoded")
+    statement_email: str | None = Field(
+        default=None, description="the .eml Safaricom sent the statement in, base64-encoded"
+    )
     tags: list[TagIn] = Field(min_length=1, max_length=2000)
+    acknowledged_checks: list[str] = Field(default_factory=list, max_length=10)
+
+    @model_validator(mode="after")
+    def one_statement_source(self) -> DraftIn:
+        if (self.statement_pdf is None) == (self.statement_email is None):
+            raise ValueError("send either statement_pdf or statement_email")
+        return self
 
 
 _DB_ERROR_STATUS = {"42501": 403, "23505": 409, "23514": 422, "P0001": 422}
@@ -257,21 +310,34 @@ async def create_draft(
     db, pepper = _deps(request)
     await _require_role(db, club_id, x_actor_id, {"manager"})
     limiter = _admit_upload(request, club_id, x_actor_id)
+    from_email = body.statement_email is not None
     try:
-        pdf = base64.b64decode(body.statement_pdf, validate=True)
+        pdf = base64.b64decode(body.statement_email or body.statement_pdf or "", validate=True)
     except ValueError:
         raise HTTPException(
-            400, {"code": "bad_pdf", "message": "statement_pdf isn't base64"}
+            400, {"code": "bad_pdf", "message": "The statement isn't base64"}
         ) from None
     if len(pdf) > MAX_STATEMENT_BYTES:
         raise HTTPException(413, {"code": "too_large", "message": "Statements are limited to 5 MB"})
 
     try:
+        if from_email:
+            pdf = await _pdf_from_email(pdf)
         parsed, _, fixtures, matches, batches = await _parse_and_match(
             db, pepper, club_id, pdf, x_statement_password, limiter, x_actor_id
         )
     finally:
         del pdf
+    # Checked against the re-parsed statement, so the browser can't acknowledge less than failed.
+    _, warnings = failed_checks(parsed.integrity)
+    if set(warnings) - set(body.acknowledged_checks):
+        raise HTTPException(
+            422,
+            {
+                "code": "needs_acknowledgement",
+                "message": "Confirm the statement warnings before saving.",
+            },
+        )
     try:
         items = build_items(
             parsed.rows,
@@ -290,7 +356,10 @@ async def create_draft(
             name: {"passed": c.passed, "weight_bp": c.weight_bp, "detail": c.detail}
             for name, c in parsed.integrity.checks.items()
         },
+        "acknowledged": warnings,  # confirmed by the manager on saving; outside the signed payload
     }
+    if from_email:
+        integrity["checks"][CHECK_NAME] = _ISSUER_PROOF  # signed along with the other checks
     params = {
         "p_club": club_id,
         "p_actor": x_actor_id,
