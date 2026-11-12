@@ -55,6 +55,12 @@ def test_too_many_pages_is_refused_before_parsing(month, monkeypatch) -> None:
         lambda doc: setattr(
             doc.Root, "Names", pikepdf.Dictionary(EmbeddedFiles=pikepdf.Dictionary())
         ),
+        # Page-level actions: one on the last page, where a first-page-only check would miss it.
+        lambda doc: setattr(doc.pages[-1].obj, "AA", pikepdf.Dictionary(O=_js())),
+        lambda doc: _annotate(doc, A=_js()),
+        lambda doc: _annotate(doc, A=pikepdf.Dictionary(S=pikepdf.Name.Launch)),
+        lambda doc: _annotate(doc, AA=pikepdf.Dictionary(E=_js())),
+        lambda doc: _annotate(doc, Subtype=pikepdf.Name.FileAttachment),
     ],
 )
 def test_scripts_and_attachments_are_refused(month, plant) -> None:
@@ -63,6 +69,30 @@ def test_scripts_and_attachments_are_refused(month, plant) -> None:
         out = io.BytesIO()
         doc.save(out)
     assert _code(out.getvalue()) == "active_content"
+
+
+def _js() -> pikepdf.Dictionary:
+    return pikepdf.Dictionary(S=pikepdf.Name.JavaScript, JS=pikepdf.String("app.alert(1)"))
+
+
+def _annotate(doc: pikepdf.Pdf, **fields) -> None:
+    annot = pikepdf.Dictionary(
+        Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Link, Rect=[0, 0, 10, 10]
+    )
+    for key, value in fields.items():
+        annot[f"/{key}"] = value
+    doc.pages[-1].obj.Annots = doc.make_indirect(pikepdf.Array([doc.make_indirect(annot)]))
+
+
+def test_a_plain_link_is_a_warning_not_a_refusal(month) -> None:
+    with pikepdf.open(io.BytesIO(build_statement(month)), password=PASSWORD) as doc:
+        _annotate(
+            doc, A=pikepdf.Dictionary(S=pikepdf.Name.URI, URI=pikepdf.String("https://x.test"))
+        )
+        out = io.BytesIO()
+        doc.save(out)
+    parsed = parse_statement(out.getvalue(), PASSWORD)
+    assert not parsed.integrity.checks["no_annotations_or_forms"].passed
 
 
 def test_two_transactions_with_one_receipt_are_refused(month) -> None:
