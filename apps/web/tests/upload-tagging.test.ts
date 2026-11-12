@@ -213,6 +213,11 @@ describe("statement warnings", () => {
 });
 
 describe("statement emails", () => {
+  it("points a too-large email to the PDF route instead", () => {
+    const big = { size: MAX_STATEMENT_BYTES + 1, name: "statement.eml", type: "message/rfc822" };
+    expect(checkStatementFile(big)?.message).toMatch(/Upload the PDF statement/);
+  });
+
   it("passes an .eml to the engine to verify, without treating it as a PDF", async () => {
     const f = new FormData();
     f.set("statement", new File(["From: a@b.example\r\n\r\nhi"], "statement.eml", { type: "" }));

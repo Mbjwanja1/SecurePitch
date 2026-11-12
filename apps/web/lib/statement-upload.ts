@@ -1,7 +1,9 @@
 // Checks on an uploaded statement, shared by the browser (early feedback) and the route
 // handlers (the real check). The engine checks again.
 
-// Vercel refuses request bodies over 4.5 MB. A month's M-Pesa statement is usually well under 1 MB.
+// Vercel refuses request bodies over 4.5 MB, so this can't go higher. A month's M-Pesa statement
+// is usually well under 1 MB. An emailed statement is about 1.5 times its PDF (base64 plus the
+// message), so the largest .eml that fits holds a PDF of roughly 2.6 MB.
 export const MAX_STATEMENT_BYTES = 4 * 1024 * 1024;
 export const MAX_PASSWORD_LENGTH = 64;
 
@@ -16,7 +18,10 @@ function isEmailFile(file: { name: string; type: string }): boolean {
 export function checkStatementFile(file: { size: number; name: string; type: string }): UploadProblem | null {
   if (file.size === 0) return { status: 400, message: "That file is empty." };
   if (file.size > MAX_STATEMENT_BYTES) {
-    return { status: 413, message: "Statements are limited to 4 MB. Download one month at a time." };
+    const message = isEmailFile(file)
+      ? "That email is too large to upload. Upload the PDF statement from it instead."
+      : "Statements are limited to 4 MB. Download one month at a time.";
+    return { status: 413, message };
   }
   if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf") && !isEmailFile(file)) {
     return { status: 415, message: "Choose the PDF statement M-Pesa sent you, or its .eml email." };
