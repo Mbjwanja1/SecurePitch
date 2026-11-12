@@ -18,6 +18,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.config import MAX_STATEMENT_BYTES
 from app.dossiers import Tag, TagError, build_items
+from app.ingest.integrity import failed_checks
+from app.ingest.models import ParsedStatement
 from app.ingest.parse import StatementError, parse_statement
 from app.ratelimit import UploadLimiter
 from app.roster.keys import (
@@ -164,6 +166,8 @@ async def parse_for_club(
     body = await request.body()
     if not body:
         raise HTTPException(400, "The request body is empty")
+    if len(body) > MAX_STATEMENT_BYTES:
+        raise HTTPException(413, {"code": "too_large", "message": "Statements are limited to 5 MB"})
     try:
         parsed, players, fixtures, matches, batches = await _parse_and_match(
             db, pepper, club_id, body, x_statement_password, limiter, x_actor_id
@@ -190,6 +194,27 @@ async def parse_for_club(
     return result
 
 
+_BLOCKING_REASON = {
+    "balance_chain": "its balances don't add up row by row",
+    "summary_match": "its totals don't match its own summary",
+}
+
+
+def _refuse_if_numbers_fail(parsed: ParsedStatement) -> None:
+    """Stop here, for the preview and the save alike, before any row reaches the browser."""
+    blocking, _ = failed_checks(parsed.integrity)
+    if blocking:
+        reasons = " and ".join(_BLOCKING_REASON[name] for name in blocking)
+        raise HTTPException(
+            422,
+            {
+                "code": "integrity_failed",
+                "message": f"This statement can't be used because {reasons}. "
+                "Download a fresh copy from M-Pesa and upload that.",
+            },
+        )
+
+
 async def _parse_and_match(
     db: Supabase,
     pepper: bytes,
@@ -208,6 +233,7 @@ async def _parse_and_match(
         raise HTTPException(
             _ERROR_STATUS.get(exc.code, 422), {"code": exc.code, "message": exc.message}
         ) from None
+    _refuse_if_numbers_fail(parsed)
     players = [
         Player(r["player_code"], r["full_name"], r.get("mask_key"))
         for r in await run_in_threadpool(db.roster, club_id)
@@ -236,6 +262,7 @@ class DraftIn(BaseModel):
 
     statement_pdf: str = Field(description="the statement PDF, base64-encoded")
     tags: list[TagIn] = Field(min_length=1, max_length=2000)
+    acknowledged_checks: list[str] = Field(default_factory=list, max_length=10)
 
 
 _DB_ERROR_STATUS = {"42501": 403, "23505": 409, "23514": 422, "P0001": 422}
@@ -272,6 +299,16 @@ async def create_draft(
         )
     finally:
         del pdf
+    # Checked against the re-parsed statement, so the browser can't acknowledge less than failed.
+    _, warnings = failed_checks(parsed.integrity)
+    if set(warnings) - set(body.acknowledged_checks):
+        raise HTTPException(
+            422,
+            {
+                "code": "needs_acknowledgement",
+                "message": "Confirm the statement warnings before saving.",
+            },
+        )
     try:
         items = build_items(
             parsed.rows,
@@ -290,6 +327,7 @@ async def create_draft(
             name: {"passed": c.passed, "weight_bp": c.weight_bp, "detail": c.detail}
             for name, c in parsed.integrity.checks.items()
         },
+        "acknowledged": warnings,  # confirmed by the manager on saving; outside the signed payload
     }
     params = {
         "p_club": club_id,

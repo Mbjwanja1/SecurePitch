@@ -19,6 +19,9 @@ WEIGHTS = {
     "no_annotations_or_forms": 500,
     "producer_baseline": 500,  # genuine statements are produced by OpenPDF
 }
+# The numbers don't add up: the statement is refused. Every other failed check is a warning the
+# manager has to acknowledge before saving, and the treasurer sees it before approving.
+BLOCKING_CHECKS = ("balance_chain", "summary_match")
 MAX_GROUP_PERMUTATION = 6  # same-second groups seen so far have at most 2 rows
 
 
@@ -30,6 +33,15 @@ class PdfSignals:
     has_form: bool
     producer: str
     fonts: tuple[str, ...]
+
+
+def failed_checks(integrity: Integrity) -> tuple[list[str], list[str]]:
+    """(blocking, warnings): the names of the checks this statement failed."""
+    failed = [name for name, check in integrity.checks.items() if not check.passed]
+    return (
+        [name for name in failed if name in BLOCKING_CHECKS],
+        [name for name in failed if name not in BLOCKING_CHECKS],
+    )
 
 
 def chain_breaks(rows_newest_first: Sequence[Row]) -> tuple[int, int]:

@@ -6,7 +6,8 @@ from __future__ import annotations
 import builtins
 import io
 import tempfile
-from datetime import timedelta
+from dataclasses import replace
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pikepdf
@@ -14,6 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 from reportlab.pdfgen import canvas
 
+from app.dossiers import Tag, build_items
 from app.ingest.classify import classify, name_tokens
 from app.ingest.integrity import WEIGHTS, PdfSignals, score
 from app.ingest.models import Kind
@@ -21,14 +23,94 @@ from app.ingest.parse import StatementError, parse_statement
 from app.main import create_app
 from tests.fakes.statement import (
     PASSWORD,
+    Tx,
     build_statement,
     lionesses_month,
     removed_row,
     summary_of,
     tampered_amount,
+    with_balances,
 )
 
 KEY = "test-key-that-is-long-enough-for-the-engine-1234"
+
+
+def _code(pdf: bytes, password: str = PASSWORD) -> str:
+    with pytest.raises(StatementError) as err:
+        parse_statement(pdf, password)
+    return err.value.code
+
+
+def test_too_many_pages_is_refused_before_parsing(month, monkeypatch) -> None:
+    monkeypatch.setattr("app.ingest.parse.MAX_PAGES", 1)
+    assert _code(build_statement(month)) == "too_many_pages"
+
+
+@pytest.mark.parametrize(
+    "plant",
+    [
+        lambda doc: setattr(doc.Root, "OpenAction", pikepdf.Dictionary(S=pikepdf.Name.JavaScript)),
+        lambda doc: setattr(doc.Root, "AA", pikepdf.Dictionary()),
+        lambda doc: setattr(doc.Root, "Names", pikepdf.Dictionary(JavaScript=pikepdf.Dictionary())),
+        lambda doc: setattr(
+            doc.Root, "Names", pikepdf.Dictionary(EmbeddedFiles=pikepdf.Dictionary())
+        ),
+        # Page-level actions: one on the last page, where a first-page-only check would miss it.
+        lambda doc: setattr(doc.pages[-1].obj, "AA", pikepdf.Dictionary(O=_js())),
+        lambda doc: _annotate(doc, A=_js()),
+        lambda doc: _annotate(doc, A=pikepdf.Dictionary(S=pikepdf.Name.Launch)),
+        lambda doc: _annotate(doc, AA=pikepdf.Dictionary(E=_js())),
+        lambda doc: _annotate(doc, Subtype=pikepdf.Name.FileAttachment),
+    ],
+)
+def test_scripts_and_attachments_are_refused(month, plant) -> None:
+    with pikepdf.open(io.BytesIO(build_statement(month)), password=PASSWORD) as doc:
+        plant(doc)
+        out = io.BytesIO()
+        doc.save(out)
+    assert _code(out.getvalue()) == "active_content"
+
+
+def _js() -> pikepdf.Dictionary:
+    return pikepdf.Dictionary(S=pikepdf.Name.JavaScript, JS=pikepdf.String("app.alert(1)"))
+
+
+def _annotate(doc: pikepdf.Pdf, **fields) -> None:
+    annot = pikepdf.Dictionary(
+        Type=pikepdf.Name.Annot, Subtype=pikepdf.Name.Link, Rect=[0, 0, 10, 10]
+    )
+    for key, value in fields.items():
+        annot[f"/{key}"] = value
+    doc.pages[-1].obj.Annots = doc.make_indirect(pikepdf.Array([doc.make_indirect(annot)]))
+
+
+def test_a_plain_link_is_a_warning_not_a_refusal(month) -> None:
+    with pikepdf.open(io.BytesIO(build_statement(month)), password=PASSWORD) as doc:
+        _annotate(
+            doc, A=pikepdf.Dictionary(S=pikepdf.Name.URI, URI=pikepdf.String("https://x.test"))
+        )
+        out = io.BytesIO()
+        doc.save(out)
+    parsed = parse_statement(out.getvalue(), PASSWORD)
+    assert not parsed.integrity.checks["no_annotations_or_forms"].passed
+
+
+def test_two_transactions_with_one_receipt_are_refused(month) -> None:
+    copy = next(t for t in month if t.paid_in)
+    twice = with_balances([*month, replace(copy, ts=month[-1].ts)], _opening(month))
+    assert _code(build_statement(twice)) == "duplicate_receipt"
+
+
+def test_rows_outside_the_statement_period_are_refused(month) -> None:
+    moved = with_balances(
+        [*month, Tx("SJZ0000001", datetime(2026, 11, 2, 9), "Airtime Purchase", withdrawn=100)],
+        _opening(month),
+    )
+    assert _code(build_statement(moved)) == "rows_outside_period"
+
+
+def _opening(month) -> int:
+    return month[0].balance - month[0].paid_in + month[0].withdrawn
 
 
 @pytest.fixture(scope="module")
@@ -310,6 +392,12 @@ def test_real_statement_parses_with_a_clean_integrity_score() -> None:
     assert p.integrity.checks["summary_match"].passed
     assert p.integrity.checks["never_resaved"].passed
     assert all(r.fee_of for r in p.rows if r.kind is Kind.CHARGE)
+    tags = [
+        Tag(r.tx, "income" if r.direction == "in" else "other")
+        for r in p.rows
+        if r.kind is not Kind.CHARGE and r.amount_cents > 0
+    ]
+    assert len(build_items(p.rows, tags, {}, [], set(), b"k" * 32)) == len(tags)
 
 
 # ---- PR review regressions ----------------------------------------------------------------

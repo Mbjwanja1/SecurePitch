@@ -2,11 +2,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { callEngine, EngineError, engineFailure } from "@/lib/engine";
-import { checkStatementFile, looksLikePdf, MAX_STATEMENT_BYTES, readStatementForm } from "@/lib/statement-upload";
+import {
+  checkStatementFile,
+  looksLikePdf,
+  MAX_STATEMENT_BYTES,
+  readAcknowledgedChecks,
+  readStatementForm,
+} from "@/lib/statement-upload";
 import {
   type Batch,
   categoriesFor,
   counterpartyLabel,
+  failedCheckNames,
   formatKes,
   formatWhen,
   setTag,
@@ -177,5 +184,27 @@ describe("callEngine", () => {
     await expect(
       callEngine("/x", { actor: "u", body: "", contentType: "application/json" }),
     ).rejects.toMatchObject({ failure: { status: 502 } });
+  });
+});
+
+describe("statement warnings", () => {
+  const check = (passed: boolean) => ({ passed, weight_bp: 500, detail: "" });
+
+  it("lists only the checks that failed", () => {
+    const integrity = { score_bp: 9500, checks: { balance_chain: check(true), producer_baseline: check(false) } };
+    expect(failedCheckNames({ integrity })).toEqual(["producer_baseline"]);
+  });
+
+  it.each([
+    [null, []],
+    ["not json", []],
+    ['{"a":1}', []],
+    ['["producer_baseline",7,"BAD NAME"]', ["producer_baseline"]],
+  ])("reads acknowledgements from %s", (raw, expected) => {
+    expect(readAcknowledgedChecks(raw)).toEqual(expected);
+  });
+
+  it("caps how many acknowledgements are forwarded", () => {
+    expect(readAcknowledgedChecks(JSON.stringify(Array(50).fill("a_check")))).toHaveLength(10);
   });
 });

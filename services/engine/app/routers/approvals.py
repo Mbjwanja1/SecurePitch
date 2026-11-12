@@ -150,6 +150,16 @@ async def _prepare(
     return snapshot, approval, leaf_hashes, c
 
 
+def _failed_checks(integrity: dict[str, Any]) -> list[dict[str, Any]]:
+    """Which statement checks failed, and whether the manager confirmed them when saving."""
+    confirmed = set(integrity.get("acknowledged") or [])
+    return [
+        {"check": name, "detail": c.get("detail", ""), "acknowledged": name in confirmed}
+        for name, c in integrity.get("checks", {}).items()
+        if not c.get("passed")
+    ]
+
+
 def _summary(snapshot: dict[str, Any], approval: dict[str, Any], c: bytes) -> dict[str, Any]:
     """What the approver is shown before signing: the signed content, not the browser's copy."""
     return {
@@ -159,6 +169,7 @@ def _summary(snapshot: dict[str, Any], approval: dict[str, Any], c: bytes) -> di
         "rows_disclosed": approval["rows_disclosed"],
         "totals_cents": approval["totals_cents"],
         "integrity_score_bp": approval["integrity"]["score_bp"],
+        "failed_checks": _failed_checks(snapshot["dossier"].get("integrity") or {}),
         "merkle_root": approval["merkle_root"],
         "challenge": c.hex(),
     }
