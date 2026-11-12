@@ -84,13 +84,47 @@ def _pdf_signals(raw: bytes, doc: pikepdf.Pdf) -> PdfSignals:
     )
 
 
+# Action types that run code or open something outside the PDF. A plain link (/URI) is not one:
+# any annotation is already a warning in the integrity score.
+_ACTIVE_ACTIONS = {
+    "/JavaScript",
+    "/Launch",
+    "/ImportData",
+    "/SubmitForm",
+    "/ResetForm",
+    "/Rendition",
+}
+
+
+def _is_active_action(action: object) -> bool:
+    return isinstance(action, pikepdf.Dictionary) and str(action.get("/S", "")) in _ACTIVE_ACTIONS
+
+
 def _has_active_content(doc: pikepdf.Pdf) -> bool:
-    """Scripts, attachments or an action that runs on opening. A statement never has these."""
-    names = doc.Root.get("/Names")
-    in_names = isinstance(names, pikepdf.Dictionary) and (
+    """Scripts, attachments or actions that run on opening a document, a page or an annotation.
+
+    A statement never has these. Pages are at most MAX_PAGES, checked before this runs.
+    """
+    root = doc.Root
+    names = root.get("/Names")
+    if isinstance(names, pikepdf.Dictionary) and (
         "/JavaScript" in names or "/EmbeddedFiles" in names
-    )
-    return in_names or "/OpenAction" in doc.Root or "/AA" in doc.Root
+    ):
+        return True
+    if "/OpenAction" in root or "/AA" in root:
+        return True
+    for page in doc.pages:
+        if "/AA" in page.obj:  # page open and close actions
+            return True
+        annots = page.obj.get("/Annots")
+        for annot in annots if isinstance(annots, pikepdf.Array) else ():
+            if not isinstance(annot, pikepdf.Dictionary):
+                continue
+            if "/AA" in annot or _is_active_action(annot.get("/A")):
+                return True
+            if annot.get("/Subtype") == pikepdf.Name.FileAttachment:
+                return True
+    return False
 
 
 def _period(text: str) -> tuple[date | None, date | None]:
